@@ -1,6 +1,7 @@
 
 
 import 'package:flutter/material.dart';
+import 'package:innovault/Functions/Providers/pen_options_provider.dart';
 import 'package:provider/provider.dart';
 import 'app_state_provider.dart';
 
@@ -28,8 +29,11 @@ class AppMultiProvider extends StatefulWidget {
         ChangeNotifierProvider<AppStateProvider>(
           create: (_) => AppStateProvider(),
         ),
+        ChangeNotifierProvider<PenOptionsProvider>(
+          create: (_) => PenOptionsProvider(),
+        ),
       ],
-      child: widget.child,
+      child: DrawingOptionsProvider(child: widget.child),
     );
   }
 }

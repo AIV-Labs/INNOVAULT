@@ -5,9 +5,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:innovault/Components/CustomPressueSensitiveWidgets/toolbar_freehand.dart';
 import 'package:flutter/material.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
+import 'package:provider/provider.dart';
 
+import '../../Functions/Providers/pen_options_provider.dart';
 import '../AppStructure/hero_routes.dart';
 import 'ToolsWidgets/AIV_Draggable_FAB_V1.dart';
+import 'ToolsWidgets/ToolBarSettings/PenSettings.dart';
 import 'notebook_background_painter.dart';
 // Assuming Toolbar is defined in the same file or imported
 // todo: make sure the drawing doesn;t ever expand beyond the canvas
@@ -22,32 +25,14 @@ class FreehandMultiDrawingCanvas extends StatefulWidget  {
 }
 class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas> with TickerProviderStateMixin{
 
-  bool isfloatingToolbarVisible = false;
+  bool isFloatingToolbarVisible = false;
   late AnimationController floatingToolbarController;
   late Animation<Offset> slideAnimation;
 
   GlobalKey mainFabKey = GlobalKey();
   PointerMode currentMode = PointerMode.none;
 
-  StrokeOptions options = StrokeOptions(
-    size: 2,
-    thinning: 0.7,
-    smoothing: 0.6,
-    streamline: 0.34,
-    easing: (double t) => t/2,
-    start: StrokeEndOptions.start(
-      taperEnabled: false,
-      cap: true,
-      // customTaper: 2,
-    ),
-    end: StrokeEndOptions.end(
-      taperEnabled: false,
-      cap: true,
-      // customTaper: 2,
-    ),
-    simulatePressure: true,
-    isComplete: false,
-  );
+
 
   final lines = ValueNotifier<List<Stroke>>([]);
   final line = ValueNotifier<Stroke?>(null);
@@ -62,37 +47,7 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
     }
   }
 
-
-// Stroke Style
-  // Stoke Size
-  StrokeStyle currentStrokeStyle = StrokeStyle(size: 2, color: Colors.black);
-  void updateStrokeSize(double newSize) {
-    setState(() {
-
-      // Update the streamline and smoothing
-      // Linear interpolation between the minimum and maximum values
-      options = options.copyWith(
-        size: newSize,
-        streamline: 0.3 + (newSize - 2 >0 ? newSize - 2:1 ) * (1 - 0.6) / (20 - 2),
-        smoothing: 1- (newSize - 2 >0 ? newSize - 2:1 ) * (1 - 0) / (20 - 2),
-      );
-    });
-  }
-  void updateStrokeThinning(double newThinning) {
-    setState(() {
-      options = options.copyWith(thinning: newThinning);
-    });
-  }
-  // Stroke Color
-  Color _currentColor = Colors.black;
-  void updateStrokeColor(Color newColor) {
-    setState(() {
-      currentStrokeStyle = currentStrokeStyle.copyWith(color: newColor);
-    });
-
-  }
 // erasing functionality
-
 
   void eraseStrokeAtPoint(Offset point) {
     lines.value = lines.value.where((stroke) {
@@ -168,29 +123,33 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 
   void closeFloatingToolbar() {
     setState(() {
-      isfloatingToolbarVisible = false;
+      isFloatingToolbarVisible = false;
       floatingToolbarController.reverse();
     });
   }
   void openFloatingToolbar() {
     setState(() {
-      isfloatingToolbarVisible = true;
+      isFloatingToolbarVisible = true;
       floatingToolbarController.forward();
     });
   }
 
+  // #### pointer Logic ####
   void onPointerDown(PointerDownEvent details) {
     if (currentMode == PointerMode.eraser) {
       eraseStrokeAtPoint(details.localPosition);
     }
 
     // Create a new StrokeStyle for the new stroke
-    final newStrokeStyle = StrokeStyle(size: currentStrokeStyle.size, color: currentStrokeStyle.color);
-
+    // final newStrokeStyle = StrokeStyle(
+    //     size: currentStrokeStyle.size,
+    //     color: currentStrokeStyle.color);
+    final newStrokeStyle = Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle;
+    // compare stroke options with provider's
     // pen mode
     if (currentMode == PointerMode.pen){
       final supportsPressure = details.kind == PointerDeviceKind.stylus;
-      options = options.copyWith(simulatePressure: !supportsPressure);
+      // TODO: with provider options = options.copyWith(simulatePressure: !supportsPressure);
 
       final localPosition = details.localPosition;
       final point = PointVector(
@@ -200,7 +159,7 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
       );
 
       // Use the current color and size when creating a new stroke
-      line.value = Stroke([point, point], options, newStrokeStyle,currentMode);
+      line.value = Stroke([point, point], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, newStrokeStyle,currentMode);
 
       // Add this line to draw a circle at the tap location
       lines.value = [...lines.value, line.value!];
@@ -236,20 +195,23 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 
       if (line.value != null) {
         // Use the same StrokeStyle when adding a point to the stroke
-        line.value = Stroke([...line.value!.points, point], options, line.value!.style, currentMode);
+        line.value = Stroke([...line.value!.points, point], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, line.value!.style, currentMode);
         pointCount++;
 
         if (pointCount >= MAX_POINTS) {
           // If the current stroke has reached the maximum points, start a new stroke from the last two points of the previous stroke
           lines.value = [...lines.value, line.value!];
-          int startIndex = line.value!.points.length - (currentStrokeStyle.size.round()*2.5).toInt();
+          int startIndex = (line.value!.points.length - (Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle.size.round()*2.5).toInt()) ;
           startIndex = startIndex >= 0 ? startIndex : 0; // Ensure the startIndex is not negative
-          line.value = Stroke([line.value!.points[startIndex], line.value!.points.last], options, currentStrokeStyle, currentMode);
+          line.value = Stroke([line.value!.points[startIndex], line.value!.points.last], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle, currentMode);
           pointCount = 2; // Reset the count to 2 as the new stroke already has two points
         }
       } else {
         // If no stroke is in progress, start a new stroke
-        line.value = Stroke([point], options, currentStrokeStyle, currentMode);
+        line.value = Stroke([point],
+            Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions,
+            Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle,
+            currentMode);
         pointCount = 1;
       }
     }
@@ -273,10 +235,10 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
       if (line.value != null) {
         if (line.value!.points.length <= 8) {
           final point = line.value!.points.first;
-          final dot = Dot(point.x, point.y, options.size / 1.5);
+          final dot = Dot(point.x, point.y, Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions.size / 1.5);
           lines.value = [
             ...lines.value,
-            Stroke([dot], options, currentStrokeStyle,currentMode)
+            Stroke([dot], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle,currentMode)
           ];
         } else {
           lines.value = [...lines.value, line.value!];
@@ -309,6 +271,7 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 @override
 initState() {
   super.initState();
+
   floatingToolbarController = AnimationController(
     duration: const Duration(milliseconds: 150),
     vsync: this,
@@ -320,9 +283,10 @@ initState() {
     parent: floatingToolbarController,
     curve: Curves.decelerate,
   ));
-
+//
 
 }
+
   ValueNotifier<Offset> fabPositionNotifier = ValueNotifier(Offset.zero);
   @override
   Widget build(BuildContext context) {
@@ -335,171 +299,206 @@ initState() {
       }
     });
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Listener(
-              onPointerDown: onPointerDown,
-              onPointerMove: onPointerMove,
-              onPointerUp: onPointerUp,
-              child: Stack(
-                children: [
+      body:
+           Stack(
+            children: [
+              Positioned.fill(
+                child: Listener(
+                  onPointerDown: onPointerDown,
+                  onPointerMove: onPointerMove,
+                  onPointerUp: onPointerUp,
+                  child: Stack(
+                    children: [
 
-                  CustomPaint(
-                    size: Size.infinite,
-                    painter: NotebookBackgroundPainter(backgroundType: BackgroundType.grid),
-                  ),
-                  // Previous lines
-                  Positioned.fill(
-                    child: RepaintBoundary(
-                      child: ValueListenableBuilder<List<Stroke>>(
-                        valueListenable: lines,
-                        builder: (_, strokes, __) {
-                          return RepaintBoundary(
-                            child: CustomPaint(
-                              willChange: false,
-                              painter: MultiStrokePainter(strokes: strokes),
-                            ),
-                          );
-                        },
+                      CustomPaint(
+                        size: Size.infinite,
+                        painter: NotebookBackgroundPainter(backgroundType: BackgroundType.grid),
+                      ),
+                      // Previous lines
+                      Positioned.fill(
+                        child: RepaintBoundary(
+                          child: ValueListenableBuilder<List<Stroke>>(
+                            valueListenable: lines,
+                            builder: (_, strokes, __) {
+                              return RepaintBoundary(
+                                child: CustomPaint(
+                                  willChange: false,
+                                  painter: MultiStrokePainter(strokes: strokes),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      // Current line
+                      Positioned.fill(
+                        child: ValueListenableBuilder<Stroke?>(
+                          valueListenable: line,
+                          builder: (_, currentStroke, __) {
+                            return RepaintBoundary(
+                              child: CustomPaint(
+
+                                painter: currentStroke != null ? StrokePainter(stroke: currentStroke,strokeStyle: currentMode) : null,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+              ...pins.map((pin) {
+                 return Positioned(
+              left: pin.position.dx,
+          top: pin.position.dy,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) {
+              debugPrint('Pin entered pin id: ${pin.id} location: ${pin.position}');
+            },
+            onExit: (_) {
+              debugPrint('Pin exited pin id: ${pin.id} location: ${pin.position}');
+            },
+            child: GestureDetector(
+              onLongPress: () {
+                debugPrint('Long pressed pin id: ${pin.id} location: ${pin.position}');
+                debugPrint('number of pins: ${pins.length}, pins are not unique ${pins.map((pin) => pin.id)}');
+                Navigator.of(context).push(HeroDialogRoute(
+                  builder: (context) => Center(
+                    child: SizedBox(
+                      height: 200,  // Change as per your requirement
+                      width: 200,
+                      child: Hero(
+                        tag: ValueKey(pin.id),
+                        child: Material(
+                          borderRadius: BorderRadius.circular(30),
+                          child: Placeholder(),  // Replace with your detailed view
+                        ),
                       ),
                     ),
                   ),
-                  // Current line
-                  Positioned.fill(
-                    child: ValueListenableBuilder<Stroke?>(
-                      valueListenable: line,
-                      builder: (_, currentStroke, __) {
-                        return RepaintBoundary(
-                          child: CustomPaint(
-
-                            painter: currentStroke != null ? StrokePainter(stroke: currentStroke,strokeStyle: currentMode) : null,
-                          ),
-                        );
-                      },
+                ));
+              },
+              child: Hero(
+                tag: ValueKey(pin.id),
+                child: Material(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.transparent,
+                  child: Tooltip(
+                    message: 'Pin id: ${pin.id} tooltip: ${pin.tooltip}',
+                    triggerMode: TooltipTriggerMode.tap,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,  // Or BoxShape.rectangle for squares, etc.
+                        color: Colors.red,
+                        border: Border.all(color: Colors.black, width: 2),
+                      ),
                     ),
-                  ),
-
-          ...pins.map((pin) {
-             return Positioned(
-    left: pin.position.dx,
-      top: pin.position.dy,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) {
-          debugPrint('Pin entered pin id: ${pin.id} location: ${pin.position}');
-        },
-        onExit: (_) {
-          debugPrint('Pin exited pin id: ${pin.id} location: ${pin.position}');
-        },
-        child: GestureDetector(
-          onLongPress: () {
-            debugPrint('Long pressed pin id: ${pin.id} location: ${pin.position}');
-            debugPrint('number of pins: ${pins.length}, pins are not unique ${pins.map((pin) => pin.id)}');
-            Navigator.of(context).push(HeroDialogRoute(
-              builder: (context) => Center(
-                child: SizedBox(
-                  height: 200,  // Change as per your requirement
-                  width: 200,
-                  child: Hero(
-                    tag: ValueKey(pin.id),
-                    child: Material(
-                      borderRadius: BorderRadius.circular(30),
-                      child: Placeholder(),  // Replace with your detailed view
-                    ),
-                  ),
-                ),
-              ),
-            ));
-          },
-          child: Hero(
-            tag: ValueKey(pin.id),
-            child: Material(
-              borderRadius: BorderRadius.circular(10),
-              color: Colors.transparent,
-              child: Tooltip(
-                message: 'Pin id: ${pin.id} metadata: ${pin.metadata}',
-                triggerMode: TooltipTriggerMode.tap,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,  // Or BoxShape.rectangle for squares, etc.
-                    color: Colors.red,
-                    border: Border.all(color: Colors.black, width: 2),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    );
-              }),
+              );
+                  }),
 
 
 
-                  // Toolbar
-                  Toolbar(
-                    options: options,
-                    updateOptions: (Function() update) => setState(update),
-                    clear: clear,
+                      // Toolbar
+                      Toolbar(
+                        options: Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions,
+                        updateOptions: (Function() update) => setState(update),
+                        clear: clear,
+                      ),
+
+                      // Positioned(
+                      //   bottom: 0,
+                      //   right: 0,
+                      //   child: UserToolbar(
+                      //     currentSize: currentStrokeStyle.size,
+                      //     currentColor: _currentColor,
+                      //     currentSensitivity: 0.7,
+                      //     onSizeChange: updateStrokeSize,
+                      //     onSensitivityChange: updateStrokeThinning,
+                      //     onColorChange: updateStrokeColor,
+                      //     clear: clear,
+                      //     onToggleEraserMode: toggleEraserMode,
+                      //     onTogglePartialEraserMode: toggleEraserMode,
+                      //     onTogglePenMode: toggleEraserMode,
+                      //   ),
+                      // ),
+
+
+
+                    ],
                   ),
-
-                  // Positioned(
-                  //   bottom: 0,
-                  //   right: 0,
-                  //   child: UserToolbar(
-                  //     currentSize: currentStrokeStyle.size,
-                  //     currentColor: _currentColor,
-                  //     currentSensitivity: 0.7,
-                  //     onSizeChange: updateStrokeSize,
-                  //     onSensitivityChange: updateStrokeThinning,
-                  //     onColorChange: updateStrokeColor,
-                  //     clear: clear,
-                  //     onToggleEraserMode: toggleEraserMode,
-                  //     onTogglePartialEraserMode: toggleEraserMode,
-                  //     onTogglePenMode: toggleEraserMode,
-                  //   ),
-                  // ),
-
-
-
-                ],
+                ),
               ),
-            ),
-          ),
 
-          DraggableFab(key: mainFabKey, onModeChange: handleModeChange, currentMode: currentMode, toggleSettingsON: openFloatingToolbar, toggleSettingsOFF: closeFloatingToolbar, isSettingsVisible: isfloatingToolbarVisible),
+              DraggableFab(key: mainFabKey, onModeChange: handleModeChange, currentMode: currentMode, toggleSettingsON: openFloatingToolbar, toggleSettingsOFF: closeFloatingToolbar, isSettingsVisible: isFloatingToolbarVisible),
 
-     // gets the top-left position of the FAB
+               // gets the top-left position of the FAB
 
-    ValueListenableBuilder(
-    valueListenable: fabPositionNotifier,
-    builder: (context, Offset fabPosition, _) {
-    // Define the animation controller and animations
+              ValueListenableBuilder(
+              valueListenable: fabPositionNotifier,
+              builder: (context, Offset fabPosition, _) {
+              // Define the animation controller and animations
 
-    return Positioned(
-    left: fabPosition.dx -60, // change this as needed
-    top: fabPosition.dy+ 160, // change this as needed
-    child: AnimatedOpacity(
-    opacity: isfloatingToolbarVisible ? 1.0 : 0.0,
-    duration: const Duration(milliseconds: 150),
-    child: SlideTransition(
-    position: slideAnimation,
-    child: Container(
-    height: 200,
-    width: 200,
-    color: Colors.black,
-    // Define the content and styling for your long-press menu here
-    ),
-    ),
-    ),
+              return Positioned(
+              left: fabPosition.dx -60, // change this as needed
+              top: fabPosition.dy+ 160, // change this as needed
+              child: AnimatedOpacity(
+              opacity: isFloatingToolbarVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 150),
+              child: SlideTransition(
+              position: slideAnimation,
+              child:  Card(
+
+              child: Padding(padding:EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                  child: PenSettingsLayoutBuilder(currentMode: currentMode))
+              // Define the content and styling for your long-press menu here
+              ),
+              ),
+              ),
+              );
+              },
+              )
+            ],
+          )
+
     );
-    },
-    )
-        ],
-      ),
+  }
+}
+
+class PenSettingsLayoutBuilder extends StatelessWidget {
+  const PenSettingsLayoutBuilder({
+    super.key,
+    required this.currentMode,
+  });
+
+  final PointerMode currentMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+    builder: (context, constraints) {
+      switch (currentMode){
+        case PointerMode.pen:
+          return PenSettings();
+
+
+            case PointerMode.eraser:
+              return const Center(child: Text('Eraser Settings'));
+            case PointerMode.pin:
+              return const Center(child: Text('Pin Settings'));
+
+            case PointerMode.none:
+              return const Center(child: Text('No mode selected'));
+            default :
+              return const Center(child: Text('No mode selected'));
+
+      }
+    }
     );
   }
 }
@@ -640,29 +639,7 @@ Path generatePath(List<PointVector> points, StrokeOptions options) {
   return path;
 }
 
-class Stroke {
-  List<dynamic> points;
-  final StrokeOptions options;
-  final StrokeStyle style;
-  final PointerMode mode;
-  Stroke(this.points, this.options, this.style,  this.mode);
-}
-class Dot {
-  final double x;
-  final double y;
-  final double radius;
 
-  Dot(this.x, this.y, this.radius);
-}
-
-class Pin {
-  final Offset position;
-  final String id;
-  final dynamic metadata; // Can be used to store additional information
-  final String tooltip;
-
-  Pin({required this.position, required this.id, this.metadata, this.tooltip = ''});
-}
 
 
 class UserToolbar extends StatefulWidget {
@@ -793,47 +770,6 @@ class _UserToolbarState extends State<UserToolbar> {
   }
 }
 
-class StrokeStyle {
-  double size;
-  Color color;
-
-  StrokeStyle({required this.size, required this.color});
-
-  StrokeStyle copyWith({double? size, Color? color}) {
-    return StrokeStyle(
-      size: size ?? this.size,
-      color: color ?? this.color,
-    );
-  }
-}
 
 
-class CustomTooltip extends StatelessWidget {
-  final String message;
-  final Offset position;
 
-  const CustomTooltip({
-    Key? key,
-    required this.message,
-    required this.position,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: position.dx,
-      top: position.dy,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          message,
-          style: TextStyle(color: Colors.white, fontSize: 14),
-        ),
-      ),
-    );
-  }
-}

@@ -6,11 +6,9 @@ import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-enum PointerMode { pen,
-  eraser,
-  // brush,
-  pin,
-  none }
+import '../../../Functions/Providers/pen_options_provider.dart';
+
+
 class DraggableFab extends StatefulWidget {
   final ValueChanged<PointerMode> onModeChange;
   final PointerMode currentMode;

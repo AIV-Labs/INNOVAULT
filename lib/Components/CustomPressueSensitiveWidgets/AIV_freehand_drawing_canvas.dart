@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:innovault/Components/CustomPressueSensitiveWidgets/toolbar_freehand.dart';
 import 'package:flutter/material.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
+import '../../Functions/Providers/pen_options_provider.dart';
 import 'ToolsWidgets/AIV_Draggable_FAB_V1.dart';
 
 import 'notebook_background_painter.dart';
@@ -122,11 +123,11 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
           currentMode = PointerMode.eraser;
         });
         break;
-      case PointerMode.brush:
-        setState(() {
-          currentMode = PointerMode.brush;
-        });
-        break;
+      // case PointerMode.brush:
+      //   setState(() {
+      //     currentMode = PointerMode.brush;
+      //   });
+      //   break;
       case PointerMode.none:
         setState(() {
           currentMode = PointerMode.none;
@@ -300,7 +301,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
             ),
           ),
 
-          DraggableFab(onModeChange: handleModeChange, currentMode: currentMode,),
+          // DraggableFab(onModeChange: handleModeChange, currentMode: currentMode,),
         ],
       ),
     );
@@ -535,16 +536,4 @@ class _UserToolbarState extends State<UserToolbar> {
   }
 }
 
-class StrokeStyle {
-  double size;
-  Color color;
 
-  StrokeStyle({required this.size, required this.color});
-
-  StrokeStyle copyWith({double? size, Color? color}) {
-    return StrokeStyle(
-      size: size ?? this.size,
-      color: color ?? this.color,
-    );
-  }
-}
