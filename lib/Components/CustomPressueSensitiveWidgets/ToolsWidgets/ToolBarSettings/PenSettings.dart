@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../Functions/Providers/pen_options_provider.dart';
@@ -167,56 +169,65 @@ class AdvancedStrokeOptions extends StatelessWidget {
           },
           label: 'Streamline',min:0, max: 1,isDecimalValue: true,),
         // cap and taper start
+        const SizedBox(height: 10),
         Row(
           children: [
-            Column(
-              children: [
-                // Cap
-                Row(
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
                   children: [
-                    Text('Cap '),
-                    Switch(
-                      value: penOptionsProvider.strokeOptions.start.cap,
-                      onChanged: (value) {
-                        penOptionsProvider.toggleStrokeStartCap(
-                            value
-                        );
-                      },
+                    // Cap
+                    Row(
+                      children: [
+                        Text('Cap '),
+                        Switch(
+                          value: penOptionsProvider.strokeOptions.start.cap,
+                          onChanged: (value) {
+                            penOptionsProvider.toggleStrokeStartCap(
+                                value
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    // Taper toggle
+                    Row(
+                      children: [
+                        Text('Taper'),
+                        Switch(
+                          value: penOptionsProvider.strokeOptions.start.taperEnabled,
+                          onChanged: (value) {
+                            penOptionsProvider.toggleStrokeStartTaper(
+                                value
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                // Taper toggle
-                Row(
-                  children: [
-                    Text('Taper'),
-                    Switch(
-                      value: penOptionsProvider.strokeOptions.start.taperEnabled,
-                      onChanged: (value) {
-                        penOptionsProvider.toggleStrokeStartTaper(
-                            value
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
 
 
-            OptionParameterSlider(
-              value: penOptionsProvider.strokeOptions.start.customTaper??1,
-              onChanged: (value) {
-                penOptionsProvider.updateStrokeStartTaper(
-                    value
-                );
-              },
-              onReset: () {
-                penOptionsProvider.updateStrokeStartTaper(
-                    penOptionsProvider.defaultPSensOptionsList[penOptionsProvider.currentOptionIndex].start.customTaper??1
-                );
-              },
-              label: 'Taper Start',
-              min:1, max: 10,)
+            Flexible(
+              flex: 4,
+              child: OptionParameterSlider(
+                value: penOptionsProvider.strokeOptions.start.customTaper??1,
+                onChanged: (value) {
+                  penOptionsProvider.updateStrokeStartTaper(
+                      value
+                  );
+                },
+                onReset: () {
+                  penOptionsProvider.updateStrokeStartTaper(
+                      penOptionsProvider.defaultPSensOptionsList[penOptionsProvider.currentOptionIndex].start.customTaper??1
+                  );
+                },
+                label: 'Taper Start',
+                min:1, max: 10,),
+            )
           ],
         ),
 
@@ -224,54 +235,62 @@ class AdvancedStrokeOptions extends StatelessWidget {
         // cap and taper end
         Row(
           children: [
-            Column(
-              children: [
-                // Cap
-                Row(
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
                   children: [
-                    Text('Cap '),
-                    Switch(
-                      value: penOptionsProvider.strokeOptions.end.cap,
-                      onChanged: (value) {
-                        penOptionsProvider.toggleStrokeEndCap(
-                            value
-                        );
-                      },
+                    // Cap
+                    Row(
+                      children: [
+                        Text('Cap '),
+                        Switch(
+                          value: penOptionsProvider.strokeOptions.end.cap,
+                          onChanged: (value) {
+                            penOptionsProvider.toggleStrokeEndCap(
+                                value
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    // Taper toggle
+                    Row(
+                      children: [
+                        Text('Taper'),
+                        Switch(
+                          value: penOptionsProvider.strokeOptions.end.taperEnabled,
+                          onChanged: (value) {
+                            penOptionsProvider.toggleStrokeEndTaper(
+                                value
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                // Taper toggle
-                Row(
-                  children: [
-                    Text('Taper'),
-                    Switch(
-                      value: penOptionsProvider.strokeOptions.end.taperEnabled,
-                      onChanged: (value) {
-                        penOptionsProvider.toggleStrokeEndTaper(
-                            value
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
 
 
-            OptionParameterSlider(
-              value: penOptionsProvider.strokeOptions.end.customTaper??1,
-              onChanged: (value) {
-                penOptionsProvider.updateStrokeEndTaper(
-                    value
-                );
-              },
-              onReset: () {
-                penOptionsProvider.updateStrokeEndTaper(
-                    penOptionsProvider.defaultPSensOptionsList[penOptionsProvider.currentOptionIndex].end.customTaper??1
-                );
-              },
-              label: 'Taper End',
-              min:1, max: 100,)
+            Flexible(
+              flex: 4,
+              child: OptionParameterSlider(
+                value: penOptionsProvider.strokeOptions.end.customTaper??1,
+                onChanged: (value) {
+                  penOptionsProvider.updateStrokeEndTaper(
+                      value
+                  );
+                },
+                onReset: () {
+                  penOptionsProvider.updateStrokeEndTaper(
+                      penOptionsProvider.defaultPSensOptionsList[penOptionsProvider.currentOptionIndex].end.customTaper??1
+                  );
+                },
+                label: 'Taper End',
+                min:1, max: 100,),
+            )
           ],
         ),
 
@@ -305,24 +324,32 @@ class OptionParameterSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
     children: [
-    Text(label),
-            Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            label: isDecimalValue? value.toString():value.round().toString() ,
-            onChanged: onChanged,
+    Flexible( child: FittedBox(fit:BoxFit.scaleDown,child: Text(label))),
+            Flexible(
+              flex:3,
+              child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              label: isDecimalValue? value.toString():value.round().toString() ,
+              onChanged: onChanged,
+              ),
             ),
-            ElevatedButton(
-              // rounded button
-              style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      shape: CircleBorder(),
-                      elevation: 5,
-                                ),
-            onPressed: onReset,
-            child: Icon(Icons.undo_rounded),
+            Flexible(
+              child: SizedBox(
+    width: 30,
+                child: ElevatedButton(
+                  // rounded button
+                  style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          shape: CircleBorder(),
+                          elevation: 5,
+                                    ),
+                onPressed: onReset,
+                child: Icon(Icons.undo_rounded),
+                ),
+              ),
             ),
             ],
             );
@@ -333,10 +360,52 @@ class OptionParameterSlider extends StatelessWidget {
 class ColorPicker extends StatelessWidget {
   final List<Color> defaultColors = [
     Colors.black,
+    Color(0xFF0b090a),
+    Color(0xFF161a1d),
+    Color(0xFF001427),
+    Color(0xFF2b2d42),
+    Color(0xFF495867),
+
+    Color(0xFFf8f9fa),
+    Color(0xFFf2e9e4),
+    Color(0xFFced4da),
+    Color(0xFFadb5bd),
+    Color(0xFFe3d0d8),
+    Color(0xFFd6e5e3),
+
+
     Colors.red,
+    Color(0xFF540b0e),
+    Color(0xFFff0000),
+    Color(0xFFef233c),
+    Color(0xFFbc4749),
+    Color(0xFFce4257),
+
     Colors.green,
+    Color(0xFF00ff00),
+    Color(0xFF52b788),
+    Color(0xFF06a77d),
+    Color(0xFF34a0a4),
+    Color(0xFF99d98c),
+
+
+
     Colors.blue,
-    // Add more colors if you want
+    Color(0xFF03045e),
+    Color(0xFF023e8a),
+    Color(0xFF0077b6),
+    Color(0xFF00b2ca),
+    Color(0xFF42bfdd),
+
+Colors.yellow,
+    Color(0xFFfca311),
+    Color(0xFFcca43b),
+    Color(0xFFfdca40),
+    Color(0xFFffe066),
+    Color(0xFFffd60a),
+
+
+
   ];
 
   @override

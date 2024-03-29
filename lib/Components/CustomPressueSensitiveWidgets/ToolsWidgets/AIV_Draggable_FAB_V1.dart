@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 
 import '../../../Functions/Providers/pen_options_provider.dart';
 
@@ -63,6 +64,7 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
       }
     });
   }
+  Fix Settings not reopenning after changing mode and settings are open
 
   // global key for main fab
   @override
@@ -144,6 +146,7 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
                       ),
+                      backgroundColor: Color(0xffebebeb),
                       onPressed: null, // Null disables the default onPressed behavior
                       child: isFabOpen ? Icon(Icons.close) : _getIconForMode(widget.currentMode),
                     ),]
@@ -223,12 +226,13 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
                 opacity: isFabOpen ? 1.0 : 0.0,
                 child: FloatingActionButton(
                   heroTag: mode.toString(),
+                  elevation: 5,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(100),
                   ),
                   mini: true,
                   onPressed: isFabOpen ? () => _selectMode(mode) : null,
-                  backgroundColor: _getColorForMode(mode),
+                  backgroundColor: Colors.white,
                   child: _getIconForMode(mode),
                 ),
               ),
@@ -287,41 +291,34 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
   }
 
   void _selectMode(PointerMode mode) {
-    debugPrint('Selected mode: $mode');
-    widget.onModeChange(mode);
+  debugPrint('Selected mode: $mode');
+  widget.onModeChange(mode);
+  if (widget.isSettingsVisible) {
+    widget.toggleSettingsON();
+  } else {
     _toggleFab();
-
   }
+}
 
   Icon _getIconForMode(PointerMode mode) {
     switch (mode) {
       case PointerMode.pen:
-        return Icon(Icons.edit);
+        return Icon(Icons.edit,
+            color: Provider.of<PenOptionsProvider>(context).currentStrokeStyle.color);
       case PointerMode.eraser:
-        return Icon(Icons.delete);
+        return Icon(Icons.delete, color: Color(0xffdb7f8e));
       // case PointerMode.brush:
       //   return Icon(Icons.brush);
       case PointerMode.pin:
-        return Icon(Icons.push_pin);
+        return Icon(Icons.push_pin, color: Provider.of<PinOptionsProvider>(context).color);
       case PointerMode.none:
-        return Icon(Icons.pan_tool_alt);
+        return Icon(Icons.pan_tool_alt, color: Color(0xffa2999e));
       default:
-        return Icon(Icons.edit); // Default case, should not happen
+        return Icon(Icons.edit, color: Colors.grey,); // Default case, should not happen
     }
   }
 
-  Color _getColorForMode(PointerMode mode) {
-    switch (mode) {
-      case PointerMode.pen:
-        return Colors.blue;
-      case PointerMode.eraser:
-        return Colors.red;
-      // case PointerMode.brush:
-      //   return Colors.green;
-      default:
-        return Colors.blue; // Default case, should not happen
-    }
-  }
+
 }
 
 // v1.2: calculate with surface area for ignore pointer

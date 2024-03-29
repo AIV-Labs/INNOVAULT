@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:innovault/Components/CustomPressueSensitiveWidgets/ToolsWidgets/ToolBarSettings/EraserSettings.dart';
 import 'package:innovault/Components/CustomPressueSensitiveWidgets/toolbar_freehand.dart';
 import 'package:flutter/material.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
@@ -11,6 +12,7 @@ import '../../Functions/Providers/pen_options_provider.dart';
 import '../AppStructure/hero_routes.dart';
 import 'ToolsWidgets/AIV_Draggable_FAB_V1.dart';
 import 'ToolsWidgets/ToolBarSettings/PenSettings.dart';
+import 'ToolsWidgets/ToolBarSettings/PinSettings.dart';
 import 'notebook_background_painter.dart';
 // Assuming Toolbar is defined in the same file or imported
 // todo: make sure the drawing doesn;t ever expand beyond the canvas
@@ -39,13 +41,30 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
   // pin logic
   List<Pin> pins = [];
   void handleTap(PointerDownEvent details) {
-    if (currentMode == PointerMode.pin) {
+  if (currentMode == PointerMode.pin) {
+    bool isOutsideExistingPins = true;
+    for (Pin pin in pins) {
+      double distanceToPinCenter = (details.localPosition - pin.position).distance;
+      if (distanceToPinCenter <= pin.size ) { // Multiply the pin size by 10
+        isOutsideExistingPins = false;
+        break;
+      }
+    }
+    if (isOutsideExistingPins) {
       setState(() {
         // Create a new pin and add it to the list
-        pins.add(Pin(position: details.localPosition, id: UniqueKey().toString(), tooltip: 'Pin #: ${pins.length}'));
+        pins.add(
+            Pin(position: details.localPosition,
+                shape: Provider.of<PinOptionsProvider>(context, listen: false).shape,
+                size: Provider.of<PinOptionsProvider>(context, listen: false).size,
+                color: Provider.of<PinOptionsProvider>(context, listen: false).color,
+                history: [],
+                id: UniqueKey().toString(),
+                tooltip: 'Pin #: ${pins.length}'));
       });
     }
   }
+}
 
 // erasing functionality
 
@@ -117,6 +136,18 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
       line.value = null;
       pins = [];
       pointCount = 0;
+    });
+  }
+  void clearStrokes() {
+    setState(() {
+      lines.value = [];
+      line.value = null;
+      pointCount = 0;
+    });
+  }
+  void clearPins() {
+    setState(() {
+      pins = [];
     });
   }
 
@@ -273,7 +304,7 @@ initState() {
   super.initState();
 
   floatingToolbarController = AnimationController(
-    duration: const Duration(milliseconds: 150),
+    duration: const Duration(milliseconds: 450),
     vsync: this,
   );
   slideAnimation = Tween<Offset>(
@@ -281,7 +312,7 @@ initState() {
     end: const Offset(0, 0.01),
   ).animate(CurvedAnimation(
     parent: floatingToolbarController,
-    curve: Curves.decelerate,
+    curve: Curves.linearToEaseOut,
   ));
 //
 
@@ -346,9 +377,8 @@ initState() {
                       ),
 
               ...pins.map((pin) {
-                 return Positioned(
-              left: pin.position.dx,
-          top: pin.position.dy,
+                 return Positioned.fromRect(
+              rect: Rect.fromCenter(center: pin.position, width: pin.size, height: pin.size),
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             onEnter: (_) {
@@ -385,14 +415,9 @@ initState() {
                   child: Tooltip(
                     message: 'Pin id: ${pin.id} tooltip: ${pin.tooltip}',
                     triggerMode: TooltipTriggerMode.tap,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,  // Or BoxShape.rectangle for squares, etc.
-                        color: Colors.red,
-                        border: Border.all(color: Colors.black, width: 2),
-                      ),
+                    child:
+                    Container(
+                      child: ShapeMaker(shapeType: pin.shape, color: pin.color)
                     ),
                   ),
                 ),
@@ -405,27 +430,10 @@ initState() {
 
 
                       // Toolbar
-                      Toolbar(
-                        options: Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions,
-                        updateOptions: (Function() update) => setState(update),
-                        clear: clear,
-                      ),
-
-                      // Positioned(
-                      //   bottom: 0,
-                      //   right: 0,
-                      //   child: UserToolbar(
-                      //     currentSize: currentStrokeStyle.size,
-                      //     currentColor: _currentColor,
-                      //     currentSensitivity: 0.7,
-                      //     onSizeChange: updateStrokeSize,
-                      //     onSensitivityChange: updateStrokeThinning,
-                      //     onColorChange: updateStrokeColor,
-                      //     clear: clear,
-                      //     onToggleEraserMode: toggleEraserMode,
-                      //     onTogglePartialEraserMode: toggleEraserMode,
-                      //     onTogglePenMode: toggleEraserMode,
-                      //   ),
+                      // Toolbar(
+                      //   options: Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions,
+                      //   updateOptions: (Function() update) => setState(update),
+                      //   clear: clear,
                       // ),
 
 
@@ -435,7 +443,13 @@ initState() {
                 ),
               ),
 
-              DraggableFab(key: mainFabKey, onModeChange: handleModeChange, currentMode: currentMode, toggleSettingsON: openFloatingToolbar, toggleSettingsOFF: closeFloatingToolbar, isSettingsVisible: isFloatingToolbarVisible),
+              DraggableFab(
+                  key: mainFabKey,
+                  onModeChange: handleModeChange,
+                  currentMode: currentMode,
+                  toggleSettingsON: openFloatingToolbar,
+                  toggleSettingsOFF: closeFloatingToolbar,
+                  isSettingsVisible: isFloatingToolbarVisible),
 
                // gets the top-left position of the FAB
 
@@ -447,18 +461,30 @@ initState() {
               return Positioned(
               left: fabPosition.dx -60, // change this as needed
               top: fabPosition.dy+ 160, // change this as needed
-              child: AnimatedOpacity(
-              opacity: isFloatingToolbarVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 150),
-              child: SlideTransition(
-              position: slideAnimation,
-              child:  Card(
-
-              child: Padding(padding:EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                  child: PenSettingsLayoutBuilder(currentMode: currentMode))
-              // Define the content and styling for your long-press menu here
-              ),
-              ),
+              child: SizedBox(
+                height: 400,
+                width: 400,
+                child: Visibility(
+                visible: isFloatingToolbarVisible,
+                  child: AnimatedOpacity(
+                  opacity: isFloatingToolbarVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 450),
+                  child: SlideTransition(
+                  position: slideAnimation,
+                  child:  Card(
+                
+                  child: Padding(padding:EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                      child: SingleChildScrollView(
+                          child: PenSettingsLayoutBuilder(
+                              currentMode: currentMode,
+                              clearStrokes: clearStrokes,
+                              clearPins: clearPins,
+                          )))
+                  // Define the content and styling for your long-press menu here
+                  ),
+                  ),
+                  ),
+                ),
               ),
               );
               },
@@ -471,9 +497,13 @@ initState() {
 }
 
 class PenSettingsLayoutBuilder extends StatelessWidget {
+  final Function() clearStrokes;
+  final Function() clearPins;
   const PenSettingsLayoutBuilder({
     super.key,
     required this.currentMode,
+    required this.clearStrokes,
+    required this.clearPins,
   });
 
   final PointerMode currentMode;
@@ -484,13 +514,17 @@ class PenSettingsLayoutBuilder extends StatelessWidget {
     builder: (context, constraints) {
       switch (currentMode){
         case PointerMode.pen:
-          return PenSettings();
+          return const PenSettings();
 
 
             case PointerMode.eraser:
-              return const Center(child: Text('Eraser Settings'));
+              return  EraserSettings(
+                  initialMode: EraserMode.objectEraser,
+                  clearAllStrokes: clearStrokes,
+                  clearAllPins: clearPins,
+                  onModeChanged: (EraserMode ) {  },);
             case PointerMode.pin:
-              return const Center(child: Text('Pin Settings'));
+              return  PinSettings();
 
             case PointerMode.none:
               return const Center(child: Text('No mode selected'));

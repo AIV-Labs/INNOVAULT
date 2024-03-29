@@ -371,7 +371,7 @@ class Pin {
    String id;
    String tooltip;
    List<Map<String, String>> history; // Each map contains a date and data
-   String shape;
+   PinShape shape;
    Color color;
   double size;
 
@@ -380,64 +380,54 @@ class Pin {
     required this.id,
      this.history = const [],
     required this.tooltip,
-     this.shape = 'circle_filled',
+     this.shape = PinShape.circle_filled,
      this.color = Colors.white,
-     this.size = 1.0,
+     this.size = 10.0,
   });
 }
 
+enum PinShape {
+  circle_filled,
+  circle_stroke,
 
+  square_filled,
+  square_stroke,
+
+  triangle_filled,
+  triangle_stroke,
+
+  hexagon_filled,
+  hexagon_stroke }
 
 class PinOptionsProvider extends ChangeNotifier {
-  List<Map<String, dynamic>> _defaultHistory = [];
-  Widget _defaultShape = Container(); // Replace with your default shape
-  Color _defaultColor = Colors.black;
-  double _defaultSize = 1.0;
+  // defaults
+  List<Map<String, dynamic>> defaultHistory = [];
+  PinShape defaultShape = PinShape.circle_filled; // Replace with your default shape
+  Color defaultColor = Colors.black;
+  double defaultSize = 10.0;
 
-  List<Map<String, dynamic>> get defaultHistory => _defaultHistory;
-  Widget get defaultShape => _defaultShape;
-  Color get defaultColor => _defaultColor;
-  double get defaultSize => _defaultSize;
+  // new pin
+  PinShape shape = PinShape.circle_filled;
+  Color color = Color(0xFF2b2d42);
+  double size = 10.0;
 
-  void updateDefaultHistory(List<Map<String, dynamic>> newHistory) {
-    _defaultHistory = newHistory;
+
+  void updateShape(PinShape newShape) {
+    shape = newShape;
     notifyListeners();
   }
 
-  void updateDefaultShape(Widget newShape) {
-    _defaultShape = newShape;
+  void updateColor(Color newColor) {
+    color = newColor;
     notifyListeners();
   }
 
-  void updateDefaultColor(Color newColor) {
-    _defaultColor = newColor;
+  void updateSize(double newSize) {
+    size = newSize;
     notifyListeners();
   }
 
-  void updateDefaultSize(double newSize) {
-    _defaultSize = newSize;
-    notifyListeners();
-  }
 
-  void updatePinColor(Pin pin, Color color) {
-    pin.color = color;
-    notifyListeners();
-  }
-
-  void updatePinSize(Pin pin, double size) {
-    pin.size = size;
-    notifyListeners();
-  }
-
-  void updatePinShape(Pin pin, String shape) {
-    pin.shape = shape;
-    notifyListeners();
-  }
-
-  void updatePinHistory(Pin pin, List<Map<String, String>> history) {
-    pin.history = history;
-    notifyListeners();
-  }
 }
 
 class DrawingOptionsProvider extends StatelessWidget {
