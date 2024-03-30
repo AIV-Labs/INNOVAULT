@@ -9,23 +9,32 @@ enum PointerMode { pen,
   pin,
   none }
 class StrokeStyle {
-  double size;
-  Color color;
+  final double size;
+  final Color color;
+  final bool taper;
+  final StrokeCap cap;
 
-  StrokeStyle({required this.size, required this.color});
+  StrokeStyle({
+    required this.size,
+    required this.color,
+    this.taper = true,
+    this.cap = StrokeCap.round, // Set a default value
+  });
 
-  StrokeStyle copyWith({double? size, Color? color}) {
+  StrokeStyle copyWith({double? size, Color? color, bool? taper, StrokeCap? cap}) {
     return StrokeStyle(
       size: size ?? this.size,
       color: color ?? this.color,
+      taper: taper ?? this.taper,
+      cap: cap ?? this.cap,
     );
   }
 }
 class Stroke {
   List<dynamic> points;
-  final StrokeOptions options;
-  final StrokeStyle style;
-  final PointerMode mode;
+   StrokeOptions options;
+   StrokeStyle style;
+   PointerMode mode;
   Stroke(this.points, this.options, this.style,  this.mode);
 }
 class Dot {
@@ -45,7 +54,7 @@ class PenOptionsProvider extends ChangeNotifier {
   List<StrokeOptions> defaultPInSensOptionsList = [];
   int currentOptionIndex = 1;
   late StrokeOptions strokeOptions;
-  StrokeStyle currentStrokeStyle = StrokeStyle(size: 2, color: Colors.black);
+  StrokeStyle currentStrokeStyle = StrokeStyle(size: 2, color: const Color(0xFF495867));
 
   PenOptionsProvider() {
     init();
@@ -65,14 +74,12 @@ class PenOptionsProvider extends ChangeNotifier {
         start:
         StrokeEndOptions.start(
           taperEnabled: false,
-          customTaper: 1,
-          cap: false,
+          cap: true,
         )
         ,
         end: StrokeEndOptions.end(
           taperEnabled: false,
-          customTaper: 1,
-          cap: false,
+          cap: true,
         ),
         simulatePressure:  true,
         isComplete: false,
@@ -88,12 +95,10 @@ class PenOptionsProvider extends ChangeNotifier {
         easing: (double t) => t/2,
         start: StrokeEndOptions.start(
           taperEnabled: false,
-          customTaper: 1,
           cap: true,
         ),
         end:StrokeEndOptions.end(
           taperEnabled: false,
-          customTaper: 1,
           cap: true,
         ),
         simulatePressure:  true,
@@ -134,7 +139,6 @@ class PenOptionsProvider extends ChangeNotifier {
         start:
         StrokeEndOptions.start(
           taperEnabled: false,
-          customTaper: 1,
           cap: true,
         ),
         end: StrokeEndOptions.end(
@@ -370,7 +374,7 @@ class Pin {
    Offset position;
    String id;
    String tooltip;
-   List<Map<String, String>> history; // Each map contains a date and data
+   List<Map<DateTime, String>> history; // Each map contains a date and data
    PinShape shape;
    Color color;
   double size;
@@ -403,12 +407,14 @@ class PinOptionsProvider extends ChangeNotifier {
   // defaults
   List<Map<String, dynamic>> defaultHistory = [];
   PinShape defaultShape = PinShape.circle_filled; // Replace with your default shape
-  Color defaultColor = Colors.black;
+  Color defaultColor = Color(0xFFbc4749);
   double defaultSize = 10.0;
 
   // new pin
   PinShape shape = PinShape.circle_filled;
-  Color color = Color(0xFF2b2d42);
+  // Color color = Color(0xFF2b2d42);
+  // Color color = Color(0xFFbc4749);
+  Color color =  Color(0xFF5A5766);
   double size = 10.0;
 
 
@@ -426,8 +432,31 @@ class PinOptionsProvider extends ChangeNotifier {
     size = newSize;
     notifyListeners();
   }
+  addEvent(Pin pin, DateTime date, String data) {
+    pin.history.add({date: data});
+    notifyListeners();
+  }
 
 
+}
+
+enum EraserMode {
+  objectEraser,
+  pointEraser,
+  transparency,
+}
+class EraserOptionsProvider extends ChangeNotifier {
+  EraserMode currentEraserMode = EraserMode.objectEraser;
+  double size =100.0; // Default eraser size
+
+  void updateSize(double newSize) {
+    size = newSize;
+    notifyListeners();
+  }
+  void updateEraserMode(EraserMode newMode) {
+    currentEraserMode = newMode;
+    notifyListeners();
+  }
 }
 
 class DrawingOptionsProvider extends StatelessWidget {
@@ -444,6 +473,9 @@ class DrawingOptionsProvider extends StatelessWidget {
         ),
         ChangeNotifierProvider<PinOptionsProvider>(
           create: (_) => PinOptionsProvider(),
+        ),
+        ChangeNotifierProvider<EraserOptionsProvider>(
+          create: (_) => EraserOptionsProvider(),
         ),
       ],
       child: child,

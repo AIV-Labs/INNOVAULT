@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 
@@ -15,55 +16,60 @@ class UnderConstruction extends StatelessWidget {
 
     return Stack(
 
+
+
       children: [
         // Background image / white color
-        Container(
+        Positioned.fill(child: Container(
           color: Colors.white,
-          height: double.infinity,
-          width: double.infinity,
-        ),
-        // Message in the middle
-        Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Center(
-              child: Lottie.asset(
-                'assets/Lotties/rocket.json',
-                height: 400,
-                width:400,
-                frameRate: FrameRate(60),
-              ),
-            ),
-             Center(
+        ),),
+        Positioned.fill(child:  Lottie.asset(
+          'assets/Lotties/rocket.json',
+          frameRate: FrameRate(60),
+        ),),
+        Positioned.fill(
+          bottom: 0,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'SOON TO BE LAUNCHED',
-                    style: TextStyle(
-                      // fontFamily: GoogleFonts.majorMonoDisplay().fontFamily,
-                      fontFamily: GoogleFonts.novaMono().fontFamily,
-                      fontSize: 44,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black87,
-                      shadows: const [
-                        Shadow(
-                          blurRadius: 10.0,
-                          color: Colors.black12,
-                          offset: Offset(5.0, 5.0),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Feature Under Dev',
+                        style: TextStyle(
+                          // fontFamily: GoogleFonts.majorMonoDisplay().fontFamily,
+                          fontFamily: GoogleFonts.novaMono().fontFamily,
+                          fontSize: 44,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.black87,
+                          shadows: const [
+                            Shadow(
+                              blurRadius: 10.0,
+                              color: Colors.black12,
+                              offset: Offset(5.0, 5.0),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
 
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10,),
-                  const RotatingIcon(),
+                  const Flexible(child: FittedBox(fit: BoxFit.scaleDown,child: RotatingIcon())),
 
                 ],
               ),
             ),
-          ],
+          ),
         ),
+        // Message in the middle
+
       ],
     );
   }

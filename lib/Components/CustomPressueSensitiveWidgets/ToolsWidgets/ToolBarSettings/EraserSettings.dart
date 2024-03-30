@@ -1,12 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 
-enum EraserMode { objectEraser, pointEraser, transparency }
+import '../../../../Functions/Providers/pen_options_provider.dart';
+
+
 
 class EraserSettings extends StatefulWidget {
-  final EraserMode initialMode;
-  final Function(EraserMode) onModeChanged;
+  final PointerMode initialMode;
+  final Function(PointerMode) onModeChanged;
   final Function() clearAllStrokes;
   final Function() clearAllPins;
 
@@ -27,21 +30,37 @@ class _EraserSettingsState extends State<EraserSettings> {
 @override
 void initState() {
     super.initState();
-    EraserMode _currentMode = widget.initialMode;
   }
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+
+    Row(
+      children: [
+
+     Text('Eraser Size:'),
+      const SizedBox(width: 10),
+      Slider(
+        min: 10.0, // Minimum eraser size
+        max: 200.0, // Maximum eraser size
+        value: Provider.of<EraserOptionsProvider>(context).size,
+        onChanged: (double newSize) {
+          Provider.of<EraserOptionsProvider>(context, listen: false).updateSize(newSize);
+          },
+      ),
+      ],
+    ),
         CupertinoSlidingSegmentedControl<EraserMode>(
           children: const <EraserMode, Widget>{
             EraserMode.objectEraser: Text('Object Eraser'),
             EraserMode.pointEraser: Text('Point Eraser'),
-            EraserMode.transparency: Text('Transparency'),
+            // EraserMode.transparency: Text('Transparency'),
           },
-          groupValue: _currentMode,
+          groupValue: Provider.of<EraserOptionsProvider>(context).currentEraserMode,
           onValueChanged: (EraserMode? value) {
             if (value != null) {
+              Provider.of<EraserOptionsProvider>(context, listen: false).updateEraserMode(value);
               setState(() {
                 _currentMode = value;
               });
@@ -49,12 +68,14 @@ void initState() {
           },
         ),
         const SizedBox(height: 20),
+        // expalantion of the eraser mode
         Container(
-          width: 150,
-          height: 150,
-          padding: const EdgeInsets.all(20),
+
+          height: 80,
+          padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey,width: 2),
+            border: Border.all(color: Colors.grey,width: 1.5),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Stack(
             children: [
@@ -64,44 +85,74 @@ void initState() {
                   child: _getModeSettings(_currentMode),
                 ),
               ),
-              Positioned.fill(child: Placeholder())
+
             ],
           ),
         ),
-        ElevatedButton(
-          onPressed: () {
-           widget.clearAllStrokes();
-          },
-          child: const Text('Clear All Strokes'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-           widget.clearAllPins();
-          },
-          child: const Text('Clear All Pins'),
+        const SizedBox(height: 20),
+       // container for both erase all strokes and erase all pins
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey,width: 1.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            children: [
+              ElevatedButton(
+                onPressed: widget.clearAllStrokes,
+                child: const Text('Erase All Strokes'),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: widget.clearAllPins,
+                child: const Text('Erase All Pins'),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
   Widget _getModeSettings(EraserMode mode) {
-    Color color;
-    switch (mode) {
-      case EraserMode.objectEraser:
-        color = Colors.red;
-        break;
-      case EraserMode.pointEraser:
-        color = Colors.green;
-        break;
-      case EraserMode.transparency:
-        color = Colors.blue;
-        break;
-    }
-    return Container(
-      key: ValueKey<EraserMode>(mode),
-      width: 100,
-      height: 100,
-      color: color,
-    );
+  List<TextSpan> explanation;
+  switch (mode) {
+    case EraserMode.objectEraser:
+      explanation = [
+        TextSpan(text: 'Object Eraser: ', style: TextStyle(fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+        TextSpan(text: 'This mode will erase the entire object when you touch any part of it. '),
+
+      ];
+      break;
+    case EraserMode.pointEraser:
+      explanation = [
+        TextSpan(text: 'Point Eraser: ', style: TextStyle(fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+        TextSpan(text: 'This mode will erase only the points you touch. '),
+        // TextSpan(text: '👆', style: TextStyle(fontSize: 24)),
+      ];
+      break;
+    case EraserMode.transparency:
+      explanation = [
+        TextSpan(text: 'Transparency: ', style: TextStyle(fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+        TextSpan(text: 'This mode will make the touched points transparent. '),
+        // TextSpan(text: '👆', style: TextStyle(fontSize: 24)),
+      ];
+      break;
+    default:
+      explanation = [TextSpan(text: 'Select an eraser mode to see its explanation here.')];
   }
+  return Container(
+    key: ValueKey<EraserMode>(mode),
+    padding: const EdgeInsets.all(10),
+    child: RichText(
+      text: TextSpan(
+        children: explanation,
+        style: TextStyle(color: Colors.black, fontSize: 16),
+      ),
+    ),
+  );
 }
+}
+
+

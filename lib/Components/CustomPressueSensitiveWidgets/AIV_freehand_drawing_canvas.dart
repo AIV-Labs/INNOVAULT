@@ -138,6 +138,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
           currentMode = PointerMode.pin;
         });
         break;
+      default: break;
     }
   }
 

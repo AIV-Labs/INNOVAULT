@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:icons_plus/icons_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../../Functions/Providers/pen_options_provider.dart';
@@ -53,18 +54,25 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
     _controller.dispose();
     super.dispose();
   }
+  bool wasSettingsVisibleBeforeFabOpened = false;
 
   void _toggleFab() {
     setState(() {
       isFabOpen = !isFabOpen;
       if (isFabOpen) {
+        wasSettingsVisibleBeforeFabOpened = widget.isSettingsVisible;
         _controller.forward();
       } else {
+        // TODO: fix restoreSettingsVisibility; so it doesn't auto close when reopened
+        if (wasSettingsVisibleBeforeFabOpened) {
+          widget.toggleSettingsON();
+        }
         _controller.reverse();
       }
     });
   }
-  Fix Settings not reopenning after changing mode and settings are open
+
+
 
   // global key for main fab
   @override
@@ -94,43 +102,21 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
                   }
                 },
                 onLongPress: () {
-                  if( widget.isSettingsVisible == false ){
-                    if (isFabOpen == true ){
-                      _toggleFab();
-                    }
+
+                  if (isFabOpen) {
+                    _toggleFab();
+                  }
+                  if (widget.isSettingsVisible) {
+                    widget.toggleSettingsOFF();
+                  } else {
                     widget.toggleSettingsON();
                   }
-                  else {
-                    widget.toggleSettingsOFF();
-
-                  }
-                //   showModalBottomSheet<void>(
-                //     context: context,isDismissible: false,
-                //     enableDrag: true,
-                //     barrierColor: Colors.transparent,showDragHandle: true,
-                //
-                //     builder: (BuildContext context) {
-                //       return Container(
-                //           height: 200,
-                //           color: Colors.amber,
-                //           child: Center(
-                //             child: Column(
-                //               mainAxisAlignment: MainAxisAlignment.center,
-                //               mainAxisSize: MainAxisSize.min,
-                //               children: <Widget>[
-                //                 const Text('Long Press Menu'),
-                //                 ElevatedButton(
-                //                   onPressed: () => Navigator.pop(context),
-                //                   child: const Text('Close'),
-                //                 ),
-                //               ],
-                //             ),
-                //           ));
-                // },);
 
                   },
                 onTap: () {
-                  widget.toggleSettingsOFF();
+                  if (!isFabOpen) {
+                    widget.toggleSettingsOFF(false);
+                  }
                   _toggleFab();
               },
                 // Main FAB
@@ -208,39 +194,39 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
 
     double startAngle = details.startAngle;  // Use the calculated start angle
     double angleIncrement = math.pi / 4; // Modify this to change the spread of buttons
+    List<PointerMode> modes = [PointerMode.pen, PointerMode.pin,PointerMode.eraser,  PointerMode.none];
+    for (int i = 0; i < modes.length; i++) {
+  final mode = modes[i];
+  // Calculate the angle for each button based on the start angle and their index
+  double angle = startAngle + angleIncrement * i;
 
-    for (int i = 0; i < PointerMode.values.length; i++) {
-      final mode = PointerMode.values[i];
-      // Calculate the angle for each button based on the start angle and their index
-      double angle = startAngle + angleIncrement * i;
-
-      buttons.add(
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(math.cos(angle) * distance * _controller.value,
-                  math.sin(angle) * distance * _controller.value),
-              child: AnimatedOpacity(
-                duration: Duration(milliseconds: 150),
-                opacity: isFabOpen ? 1.0 : 0.0,
-                child: FloatingActionButton(
-                  heroTag: mode.toString(),
-                  elevation: 5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  mini: true,
-                  onPressed: isFabOpen ? () => _selectMode(mode) : null,
-                  backgroundColor: Colors.white,
-                  child: _getIconForMode(mode),
-                ),
+  buttons.add(
+    AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(math.cos(angle) * distance * _controller.value,
+              math.sin(angle) * distance * _controller.value),
+          child: AnimatedOpacity(
+            duration: Duration(milliseconds: 150),
+            opacity: isFabOpen ? 1.0 : 0.0,
+            child: FloatingActionButton(
+              heroTag: mode.toString(),
+              elevation: 5,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
               ),
-            );
-          },
-        ),
-      );
-    }
+              mini: true,
+              onPressed: isFabOpen ? () => _selectMode(mode) : null,
+              backgroundColor: Colors.white,
+              child: _getIconForMode(mode),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
     //test push
     return Stack(
       children: [
@@ -291,30 +277,29 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
   }
 
   void _selectMode(PointerMode mode) {
-  debugPrint('Selected mode: $mode');
-  widget.onModeChange(mode);
-  if (widget.isSettingsVisible) {
-    widget.toggleSettingsON();
-  } else {
+    debugPrint('Selected mode: $mode');
+    widget.onModeChange(mode);
+    if (widget.isSettingsVisible) {
+      widget.toggleSettingsON();
+    }
     _toggleFab();
   }
-}
 
   Icon _getIconForMode(PointerMode mode) {
     switch (mode) {
       case PointerMode.pen:
-        return Icon(Icons.edit,
+        return Icon(CupertinoIcons.pencil_outline, size: 20,
             color: Provider.of<PenOptionsProvider>(context).currentStrokeStyle.color);
       case PointerMode.eraser:
-        return Icon(Icons.delete, color: Color(0xffdb7f8e));
+        return Icon(Bootstrap.eraser_fill,size: 20, color: Color(0xffdb7f8e));
       // case PointerMode.brush:
       //   return Icon(Icons.brush);
       case PointerMode.pin:
-        return Icon(Icons.push_pin, color: Provider.of<PinOptionsProvider>(context).color);
+        return Icon(Bootstrap.hexagon_half, size: 20,color: Provider.of<PinOptionsProvider>(context).color);
       case PointerMode.none:
-        return Icon(Icons.pan_tool_alt, color: Color(0xffa2999e));
+        return Icon(Icons.pan_tool_alt, size: 20,color: Color(0xFF5A5766));
       default:
-        return Icon(Icons.edit, color: Colors.grey,); // Default case, should not happen
+        return Icon(Icons.edit, size: 20,color: Color(0xFFadb5bd),); // Default case, should not happen
     }
   }
 

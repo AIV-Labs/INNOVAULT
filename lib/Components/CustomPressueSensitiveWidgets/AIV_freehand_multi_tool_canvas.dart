@@ -11,8 +11,10 @@ import 'package:provider/provider.dart';
 import '../../Functions/Providers/pen_options_provider.dart';
 import '../AppStructure/hero_routes.dart';
 import 'ToolsWidgets/AIV_Draggable_FAB_V1.dart';
+import 'ToolsWidgets/ToolBarSettings/PanSettings.dart';
 import 'ToolsWidgets/ToolBarSettings/PenSettings.dart';
 import 'ToolsWidgets/ToolBarSettings/PinSettings.dart';
+import 'ToolsWidgets/ToolBarSettings/expanded_pin.dart';
 import 'notebook_background_painter.dart';
 // Assuming Toolbar is defined in the same file or imported
 // todo: make sure the drawing doesn;t ever expand beyond the canvas
@@ -30,6 +32,7 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
   bool isFloatingToolbarVisible = false;
   late AnimationController floatingToolbarController;
   late Animation<Offset> slideAnimation;
+  late Animation<double> opacityAnimation;
 
   GlobalKey mainFabKey = GlobalKey();
   PointerMode currentMode = PointerMode.none;
@@ -67,25 +70,125 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 }
 
 // erasing functionality
+  ValueNotifier<Offset> pointerPosition = ValueNotifier(Offset.zero);
+  ValueNotifier<bool> isCursorVisible = ValueNotifier(false);
+  // v1 object eraser : functioning on pointer down (pins and strokes)
+  // void objectErase(Offset point) {
+  //   lines.value = lines.value.where((stroke) {
+  //     if (doesStrokeContainPoint(stroke, point)) {
+  //       return false;
+  //     }
+  //
+  //     // Check if the stroke is a dot and if it's within a certain distance of the eraser point
+  //     if (stroke.points.length <= 8) {
+  //       final dotPoint = stroke.points.first;
+  //       final distance = sqrt(pow(dotPoint.x - point.dx, 2) + pow(dotPoint.y - point.dy, 2));
+  //       if (distance <= stroke.style.size) {
+  //         return false;
+  //       }
+  //     }
+  //
+  //     return true;
+  //   }).toList();
+  //
+  //   // Add this block to remove pins with empty history
+  //   setState(() {
+  //     pins = pins.where((pin) {
+  //       double distanceToPinCenter = (point - pin.position).distance;
+  //       if (distanceToPinCenter <= pin.size) {
+  //         if (pin.history.isEmpty) {
+  //           return false;
+  //         } else {
+  //           // Show dialog to confirm deletion
+  //           showDialog(
+  //             context: context,
+  //             builder: (BuildContext context) {
+  //               return AlertDialog(
+  //                 title: Text('Confirm Deletion'),
+  //                 content: Text('This pin has a history. Are you sure you want to delete it?'),
+  //                 actions: <Widget>[
+  //                   TextButton(
+  //                     child: Text('Cancel'),
+  //                     onPressed: () {
+  //                       Navigator.of(context).pop();
+  //                     },
+  //                   ),
+  //                   TextButton(
+  //                     child: Text('Delete'),
+  //                     onPressed: () {
+  //                       // Delete the pin
+  //                       setState(() {
+  //                         pins.remove(pin);
+  //                       });
+  //                       Navigator.of(context).pop();
+  //                     },
+  //                   ),
+  //                 ],
+  //               );
+  //             },
+  //           );
+  //         }
+  //       }
+  //       return true;
+  //     }).toList();
+  //   });
+  // }
+  // v2
+  void objectErase(Offset point) {
+  double eraserSize = Provider.of<EraserOptionsProvider>(context, listen: false).size;
 
-  void eraseStrokeAtPoint(Offset point) {
-    lines.value = lines.value.where((stroke) {
-      if (doesStrokeContainPoint(stroke, point)) {
+  lines.value = lines.value.where((stroke) {
+    for (var strokePoint in stroke.points) {
+      final distance = sqrt(pow(strokePoint.x - point.dx, 2) + pow(strokePoint.y - point.dy, 2));
+      if (distance <= eraserSize/2) {
         return false;
       }
+    }
+    return true;
+  }).toList();
 
-      // Check if the stroke is a dot and if it's within a certain distance of the eraser point
-      if (stroke.points.length <= 8) {
-        final dotPoint = stroke.points.first;
-        final distance = sqrt(pow(dotPoint.x - point.dx, 2) + pow(dotPoint.y - point.dy, 2));
-        if (distance <= stroke.style.size) {
+  // Add this block to remove pins with empty history
+  setState(() {
+    pins = pins.where((pin) {
+      double distanceToPinCenter = (point - pin.position).distance;
+      if (distanceToPinCenter <= eraserSize) {
+        if (pin.history.isEmpty) {
           return false;
+        } else {
+          // Show dialog to confirm deletion
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: Text('Confirm Deletion'),
+                content: Text('This pin has a history. Are you sure you want to delete it?'),
+                actions: <Widget>[
+                  TextButton(
+                    child: Text('Cancel'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  TextButton(
+                    child: Text('Delete'),
+                    onPressed: () {
+                      // Delete the pin
+                      setState(() {
+                        pins.remove(pin);
+                      });
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              );
+            },
+          );
         }
       }
-
       return true;
     }).toList();
-  }
+  });
+}
   bool doesStrokeContainPoint(Stroke stroke, Offset point) {
     final path = Path();
     if (stroke.points.isNotEmpty) {
@@ -97,6 +200,86 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
     return path.contains(point);
   }
 
+  // v1: point eraser no splitting
+  // void pointErase(Offset point) {
+  //   debugPrint('pointErasing point at $point');
+  //   double eraserSize = Provider.of<EraserOptionsProvider>(context, listen: false).size;
+  //
+  //
+  //   lines.value = lines.value.map((stroke) {
+  //     // Remove points within the eraser circle
+  //     stroke.points = stroke.points.where((strokePoint) {
+  //       final distance = sqrt(pow(strokePoint.x - point.dx, 2) + pow(strokePoint.y - point.dy, 2));
+  //       return distance > eraserSize/2;
+  //     }).toList();
+  //
+  //     return stroke;
+  //   }).toList();
+  //
+  //   // Remove pins within the eraser circle
+  //   setState(() {
+  //     pins = pins.where((pin) {
+  //       final distanceToPinCenter = (point - pin.position).distance;
+  //       return distanceToPinCenter > eraserSize;
+  //     }).toList();
+  //   });
+  // }
+
+  // v2: point eraser with splitting
+    // Initialize an empty list of strokes.
+    // Iterate over each stroke in lines.value.
+    // For each stroke, initialize an empty list of points.
+    // Iterate over each point in the stroke.
+    // If the point is within the eraser's circle, add it to the list of points.
+    // If the point is not within the eraser's circle and the list of points is not empty, create a new stroke with the list of points and add it to the list of strokes. Then, clear the list of points.
+    // After iterating over all points in the stroke, if the list of points is not empty, create a new stroke with the list of points and add it to the list of strokes.
+    // After iterating over all strokes in lines.value, update lines.value with the list of strokes.
+  void pointErase(Offset point) {
+  debugPrint('pointErasing point at $point');
+  double eraserSize = Provider.of<EraserOptionsProvider>(context, listen: false).size;
+
+  List<Stroke> newStrokes = [];
+
+  for (Stroke stroke in lines.value) {
+    List<dynamic> newPoints = []; // Change PointVector to dynamic
+
+    for (var strokePoint in stroke.points) {
+      if (strokePoint is PointVector) {
+        final distance = sqrt(pow(strokePoint.x - point.dx, 2) + pow(strokePoint.y - point.dy, 2));
+
+        if (distance > eraserSize/2) {
+          newPoints.add(strokePoint);
+        } else if (newPoints.isNotEmpty) {
+          newStrokes.add(Stroke(newPoints, stroke.options, stroke.style, stroke.mode));
+          newPoints = [];
+        }
+      } else if (strokePoint is Dot) {
+        final distance = sqrt(pow(strokePoint.x - point.dx, 2) + pow(strokePoint.y - point.dy, 2));
+
+        if (distance > eraserSize/2) {
+          newPoints.add(strokePoint);
+        }
+      }
+    }
+
+    if (newPoints.isNotEmpty) {
+      newStrokes.add(Stroke(newPoints, stroke.options, stroke.style, stroke.mode));
+    }
+  }
+
+  lines.value = newStrokes;
+
+  // Remove pins within the eraser circle
+  setState(() {
+    pins = pins.where((pin) {
+      final distanceToPinCenter = (point - pin.position).distance;
+      return distanceToPinCenter > eraserSize/2;
+    }).toList();
+  });
+}
+
+
+//
 
   // function to switch between modes
   void handleModeChange(PointerMode mode) {
@@ -126,6 +309,8 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
           currentMode = PointerMode.pin;
         });
         break;
+      default:
+        break;
     }
   }
 
@@ -152,11 +337,24 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
   }
 
 
-  void closeFloatingToolbar() {
-    setState(() {
-      isFloatingToolbarVisible = false;
+  void closeFloatingToolbar([bool animate = true]) {
+    debugPrint('ACTIVATED CLOSING SETTINGS IN 450ms');
+
+    if (animate) {
       floatingToolbarController.reverse();
-    });
+// reverse the animation
+      Future.delayed(const Duration(milliseconds: 450), () {
+        setState(() {
+          isFloatingToolbarVisible = false;
+        });
+      });
+    }
+    else {
+      setState(() {
+        isFloatingToolbarVisible = false;
+        floatingToolbarController.reverse();
+      });
+    }
   }
   void openFloatingToolbar() {
     setState(() {
@@ -167,14 +365,26 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 
   // #### pointer Logic ####
   void onPointerDown(PointerDownEvent details) {
+    pointerPosition.value = details.localPosition;
+    isCursorVisible.value = true;
+    // eraser mode
+    EraserMode currentEraserMode = Provider.of<EraserOptionsProvider>(context, listen: false).currentEraserMode;
+
     if (currentMode == PointerMode.eraser) {
-      eraseStrokeAtPoint(details.localPosition);
+      switch (currentEraserMode) {
+        case EraserMode.objectEraser:
+          objectErase(details.localPosition);
+          break;
+        case EraserMode.pointEraser:
+          pointErase(details.localPosition);
+          break;
+        case EraserMode.transparency:
+        // Handle transparency eraser mode
+          break;
+      }
     }
 
-    // Create a new StrokeStyle for the new stroke
-    // final newStrokeStyle = StrokeStyle(
-    //     size: currentStrokeStyle.size,
-    //     color: currentStrokeStyle.color);
+
     final newStrokeStyle = Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle;
     // compare stroke options with provider's
     // pen mode
@@ -210,58 +420,64 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
     }
 
   }
-  void onPointerMove(PointerMoveEvent details) {
-    if (currentMode == PointerMode.eraser) {
-      eraseStrokeAtPoint(details.localPosition);
-    }
-    // pen mode
-    if (currentMode == PointerMode.pen){
-      final supportsPressure = details.pressureMin < 1;
-      final localPosition = details.localPosition;
-      final point = PointVector(
-        localPosition.dx,
-        localPosition.dy,
-        supportsPressure ? details.pressure : null,
-      );
 
-      if (line.value != null) {
-        // Use the same StrokeStyle when adding a point to the stroke
-        line.value = Stroke([...line.value!.points, point], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, line.value!.style, currentMode);
-        pointCount++;
 
-        if (pointCount >= MAX_POINTS) {
-          // If the current stroke has reached the maximum points, start a new stroke from the last two points of the previous stroke
-          lines.value = [...lines.value, line.value!];
-          int startIndex = (line.value!.points.length - (Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle.size.round()*2.5).toInt()) ;
-          startIndex = startIndex >= 0 ? startIndex : 0; // Ensure the startIndex is not negative
-          line.value = Stroke([line.value!.points[startIndex], line.value!.points.last], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle, currentMode);
-          pointCount = 2; // Reset the count to 2 as the new stroke already has two points
-        }
-      } else {
-        // If no stroke is in progress, start a new stroke
-        line.value = Stroke([point],
-            Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions,
-            Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle,
-            currentMode);
-        pointCount = 1;
-      }
-    }
-
-    // brush mode
-    // if (currentMode == PointerMode.brush) {
-    //   final point = _createBrushPoint(details);
-    //   if (line.value != null) {
-    //     var updatedPoints = List<PointVector>.from(line.value!.points)..add(point);
-    //     line.value = Stroke(updatedPoints, options, currentStrokeStyle, currentMode);
-    //     // Notify listeners to trigger a repaint.
-    //     line.notifyListeners();
-    //   }
-    // }
-  }
   static const int MAX_POINTS = 750; // Define your own threshold here
   int pointCount = 0;
 
+  void onPointerMove(PointerMoveEvent details) {
+  pointerPosition.value = details.localPosition;
+  // eraser mode
+  EraserMode currentEraserMode = Provider.of<EraserOptionsProvider>(context, listen: false).currentEraserMode;
+  if (currentMode == PointerMode.eraser) {
+    switch (currentEraserMode) {
+      case EraserMode.objectEraser:
+        objectErase(details.localPosition);
+        break;
+      case EraserMode.pointEraser:
+        pointErase(details.localPosition);
+        break;
+      case EraserMode.transparency:
+      // Handle transparency eraser mode
+        break;
+    }
+  }
+  // pen mode
+  if (currentMode == PointerMode.pen){
+    final supportsPressure = details.pressureMin < 1;
+    final localPosition = details.localPosition;
+    final point = PointVector(
+      localPosition.dx,
+      localPosition.dy,
+      supportsPressure ? details.pressure : null,
+    );
+
+    if (line.value != null) {
+      // If the stroke has reached the maximum points, continue the existing stroke
+      if (line.value!.points.length >= MAX_POINTS) {
+        // Store the last point of the first stroke
+        final lastPoint = line.value!.points.last;
+
+        // Continue the existing stroke by adding the new point to it
+        line.value = Stroke([...line.value!.points, point], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, line.value!.style, currentMode);
+      } else {
+        // Otherwise, add the point to the current stroke
+        line.value = Stroke([...line.value!.points, point], Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions, line.value!.style, currentMode);
+      }
+    } else {
+      // If no stroke is in progress, start a new stroke
+      line.value = Stroke([point],
+          Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions,
+          Provider.of<PenOptionsProvider>(context, listen: false).currentStrokeStyle,
+          currentMode);
+    }
+  }
+}
+
+
   void onPointerUp(PointerUpEvent details) {
+    // toggle eraser cursor visibility off
+    isCursorVisible.value = false;
     if (currentMode == PointerMode.eraser || currentMode == PointerMode.pen) {
       if (line.value != null) {
         if (line.value!.points.length <= 8) {
@@ -304,7 +520,7 @@ initState() {
   super.initState();
 
   floatingToolbarController = AnimationController(
-    duration: const Duration(milliseconds: 450),
+    duration: const Duration(milliseconds: 350),
     vsync: this,
   );
   slideAnimation = Tween<Offset>(
@@ -312,12 +528,21 @@ initState() {
     end: const Offset(0, 0.01),
   ).animate(CurvedAnimation(
     parent: floatingToolbarController,
-    curve: Curves.linearToEaseOut,
+    curve: Curves.decelerate,
   ));
+  opacityAnimation = Tween<double>(
+    begin: 0.0,
+    end: 1.0,
+  ).animate(floatingToolbarController);
 //
 
 }
 
+  @override
+  void dispose() {
+    super.dispose();
+    floatingToolbarController.dispose();
+  }
   ValueNotifier<Offset> fabPositionNotifier = ValueNotifier(Offset.zero);
   @override
   Widget build(BuildContext context) {
@@ -394,13 +619,13 @@ initState() {
                 Navigator.of(context).push(HeroDialogRoute(
                   builder: (context) => Center(
                     child: SizedBox(
-                      height: 200,  // Change as per your requirement
-                      width: 200,
+                      height: 600,  // Change as per your requirement
+                      width: 600,
                       child: Hero(
                         tag: ValueKey(pin.id),
                         child: Material(
                           borderRadius: BorderRadius.circular(30),
-                          child: Placeholder(),  // Replace with your detailed view
+                          child: ExpandedPin(pin: pin),  // Replace with your detailed view
                         ),
                       ),
                     ),
@@ -427,21 +652,28 @@ initState() {
               );
                   }),
 
-
-
-                      // Toolbar
-                      // Toolbar(
-                      //   options: Provider.of<PenOptionsProvider>(context, listen: false).strokeOptions,
-                      //   updateOptions: (Function() update) => setState(update),
-                      //   clear: clear,
-                      // ),
-
-
+// pointer position notifier
+                      ValueListenableBuilder<bool>(
+                        valueListenable: isCursorVisible,
+                        builder: (context, isVisible, _) {
+                          return ValueListenableBuilder<Offset>(
+                            valueListenable: pointerPosition,
+                            builder: (context, position, _) {
+                              return Visibility(
+                                visible: isVisible && (currentMode == PointerMode.eraser ),
+                                child: CustomCursor(position: position),
+                              );
+                            },
+                          );
+                        },
+                      )
 
                     ],
                   ),
                 ),
               ),
+
+
 
               DraggableFab(
                   key: mainFabKey,
@@ -463,22 +695,26 @@ initState() {
               top: fabPosition.dy+ 160, // change this as needed
               child: SizedBox(
                 height: 400,
-                width: 400,
+                width: 300,
                 child: Visibility(
                 visible: isFloatingToolbarVisible,
-                  child: AnimatedOpacity(
-                  opacity: isFloatingToolbarVisible ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 450),
+                  // TODO: tofix reverse animation
+                  child: FadeTransition(
+                  opacity: opacityAnimation,
+                  // child: AnimatedOpacity(
+                  // opacity: isFloatingToolbarVisible ? 1.0 : 0.0,
+                  // duration: const Duration(milliseconds: 350),
                   child: SlideTransition(
                   position: slideAnimation,
                   child:  Card(
                 
-                  child: Padding(padding:EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                  child: Padding(padding:EdgeInsets.symmetric(vertical: 10, horizontal: 5),
                       child: SingleChildScrollView(
                           child: PenSettingsLayoutBuilder(
                               currentMode: currentMode,
                               clearStrokes: clearStrokes,
                               clearPins: clearPins,
+                            onModeChanged: handleModeChange,
                           )))
                   // Define the content and styling for your long-press menu here
                   ),
@@ -499,11 +735,13 @@ initState() {
 class PenSettingsLayoutBuilder extends StatelessWidget {
   final Function() clearStrokes;
   final Function() clearPins;
+  final Function(PointerMode) onModeChanged;
   const PenSettingsLayoutBuilder({
     super.key,
     required this.currentMode,
     required this.clearStrokes,
     required this.clearPins,
+    required this.onModeChanged,
   });
 
   final PointerMode currentMode;
@@ -519,15 +757,15 @@ class PenSettingsLayoutBuilder extends StatelessWidget {
 
             case PointerMode.eraser:
               return  EraserSettings(
-                  initialMode: EraserMode.objectEraser,
+                  initialMode: PointerMode.eraser,
                   clearAllStrokes: clearStrokes,
                   clearAllPins: clearPins,
-                  onModeChanged: (EraserMode ) {  },);
+                  onModeChanged: onModeChanged,);
             case PointerMode.pin:
               return  PinSettings();
 
             case PointerMode.none:
-              return const Center(child: Text('No mode selected'));
+              return const PanSettings();
             default :
               return const Center(child: Text('No mode selected'));
 
@@ -581,6 +819,7 @@ class StrokePainter extends CustomPainter {
   @override
   bool shouldRepaint(StrokePainter oldDelegate) => true;
 }
+
 
 class MultiStrokePainter extends CustomPainter {
   final List<Stroke> strokes;
@@ -720,6 +959,7 @@ class _UserToolbarState extends State<UserToolbar> {
     _currentSensitivity = 0.7;
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -806,4 +1046,56 @@ class _UserToolbarState extends State<UserToolbar> {
 
 
 
+class CustomCursor extends StatelessWidget {
+  final Offset position;
 
+  CustomCursor({required this.position});
+
+  @override
+  Widget build(BuildContext context) {
+    // Get the eraser size from the provider
+    double eraserSize = Provider.of<EraserOptionsProvider>(context, listen: false).size;
+
+    return Positioned(
+      left: position.dx - eraserSize / 2,
+      top: position.dy - eraserSize / 2,
+      child: Container(
+        width: eraserSize,
+        height: eraserSize,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.black, width: 1),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+// TODO: good painter for drawing maybe without using perfect freehand
+// class StrokePainter extends CustomPainter {
+//   final Stroke stroke;
+//   final PointerMode strokeStyle;
+//
+//   StrokePainter({required this.stroke, required this.strokeStyle});
+//
+//   @override
+//   void paint(Canvas canvas, Size size) {
+//     final paint = Paint()
+//       ..color = stroke.style.color
+//       ..style = PaintingStyle.stroke
+//       ..strokeCap = StrokeCap.round
+//       ..strokeJoin = StrokeJoin.round
+//       ..strokeWidth = stroke.style.size;
+//
+//     if (stroke.points.isNotEmpty) {
+//       for (var i = 0; i < stroke.points.length - 1; i++) {
+//         final p1 = stroke.points[i];
+//         final p2 = stroke.points[i + 1];
+//         canvas.drawLine(Offset(p1.x, p1.y), Offset(p2.x, p2.y), paint);
+//       }
+//     }
+//   }
+//
+//   @override
+//   bool shouldRepaint(StrokePainter oldDelegate) => true;
+// }

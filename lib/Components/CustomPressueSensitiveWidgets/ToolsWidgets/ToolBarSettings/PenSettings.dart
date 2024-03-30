@@ -39,36 +39,41 @@ class PenSettings extends StatelessWidget {
               mainAxisSize: MainAxisSize.max,
               children: [
                 // chosen color
-                Container(
-                  decoration: BoxDecoration(
-                    color: penOptionsProvider.currentStrokeStyle.color,
-                    border: Border.all(
-                      color: Colors.black26,
-                      width: 2,
+                Flexible(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: penOptionsProvider.currentStrokeStyle.color,
+                      border: Border.all(
+                        color: Colors.black26,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    borderRadius: BorderRadius.circular(10),
+                    height: 30,
+                    width: 30,
+                    padding: const EdgeInsets.all(10),
+                  
                   ),
-                  height: 30,
-                  width: 30,
-                  padding: const EdgeInsets.all(10),
-
                 ),
                 const SizedBox(width: 10),
                 // color picker
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.grey,
-                      width: 1,
+                Flexible(
+                  flex: 5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey,
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                  
+                  
                     ),
-                    borderRadius: BorderRadius.circular(10),
-
-
-                  ),
-                  height: 100,
-                  width: 250,
-                  padding: EdgeInsets.all(10),
-                  child: ColorPicker(),),
+                    height: 100,
+                    width: 300,
+                    padding: EdgeInsets.all(10),
+                    child: ColorPicker(),),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -212,7 +217,7 @@ class AdvancedStrokeOptions extends StatelessWidget {
 
 
             Flexible(
-              flex: 4,
+              flex: 3,
               child: OptionParameterSlider(
                 value: penOptionsProvider.strokeOptions.start.customTaper??1,
                 onChanged: (value) {
@@ -275,7 +280,7 @@ class AdvancedStrokeOptions extends StatelessWidget {
 
 
             Flexible(
-              flex: 4,
+              flex: 3,
               child: OptionParameterSlider(
                 value: penOptionsProvider.strokeOptions.end.customTaper??1,
                 onChanged: (value) {
@@ -323,8 +328,14 @@ class OptionParameterSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-    Flexible( child: FittedBox(fit:BoxFit.scaleDown,child: Text(label))),
+      // label
+    Flexible(
+        child: FittedBox(fit:BoxFit.scaleDown,child: Text(label))
+    ),
+            // Slider
             Flexible(
               flex:3,
               child: Slider(
@@ -336,9 +347,11 @@ class OptionParameterSlider extends StatelessWidget {
               onChanged: onChanged,
               ),
             ),
+
+            // Reset button
             Flexible(
               child: SizedBox(
-    width: 30,
+    width: 20,
                 child: ElevatedButton(
                   // rounded button
                   style: ElevatedButton.styleFrom(
@@ -347,7 +360,7 @@ class OptionParameterSlider extends StatelessWidget {
                           elevation: 5,
                                     ),
                 onPressed: onReset,
-                child: Icon(Icons.undo_rounded),
+                child: Icon(Icons.undo_rounded, size: 15,),
                 ),
               ),
             ),
@@ -416,7 +429,7 @@ Colors.yellow,
           crossAxisCount: 6, // Change this number as per your requirement
           padding: EdgeInsets.zero,
           scrollDirection: Axis.vertical,
-          crossAxisSpacing: 15,
+          crossAxisSpacing: 5,
           mainAxisSpacing: 15,
 
           children: defaultColors.map((color) {
@@ -425,7 +438,7 @@ Colors.yellow,
                 penOptionsProvider.updateStrokeStyle(penOptionsProvider.currentStrokeStyle.copyWith(color: color));
               },
               child: Container(
-
+margin: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(10),

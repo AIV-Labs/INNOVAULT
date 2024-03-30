@@ -93,39 +93,44 @@ const SizedBox(width: 10),
             Row(
 
               crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisSize: MainAxisSize.max,
+
+
               children: [
                 // chosen color
-                Container(
-                  decoration: BoxDecoration(
-                    color: pinOptionsProvider.color,
-                    border: Border.all(
-                      color: Colors.black26,
-                      width: 2,
+                Flexible(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: pinOptionsProvider.color,
+                      border: Border.all(
+                        color: Colors.black26,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  height: 30,
-                  width: 30,
-                  padding: const EdgeInsets.all(10),
+                    height: 30,
+                    width: 30,
+                    margin: const EdgeInsets.all( 5),
 
+                  ),
                 ),
-                const SizedBox(width: 20),
-                // color picker
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.grey,
-                      width: 1,
+                const SizedBox(width: 10),
+                Flexible(
+                  flex: 5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey,
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+
+
                     ),
-                    borderRadius: BorderRadius.circular(10),
-
-
-                  ),
-                  height: 100,
-                  width: 250,
-                  padding: EdgeInsets.all(10),
-                  child: PinColorPicker(),),
+                    height: 100,
+                    width: 250,
+                    padding: EdgeInsets.all(10),
+                    child: PinColorPicker(),),
+                ),
               ],
             ),
           ],
