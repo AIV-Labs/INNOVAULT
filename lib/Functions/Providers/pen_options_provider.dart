@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:perfect_freehand/perfect_freehand.dart';
 import 'package:provider/provider.dart';
 
 
 enum PointerMode { pen,
   eraser,
+  textBox,
   // brush,
   pin,
   none }
@@ -459,6 +461,104 @@ class EraserOptionsProvider extends ChangeNotifier {
   }
 }
 
+
+// Provider for Text box
+class TextBox {
+   String id;
+   String creator;
+   String lastEditor;
+   DateTime creationDate;
+   DateTime lastUpdateDate;
+   List <String> activeUsers;
+   Offset position;
+   quill.QuillController controller;
+   Color bannerColor = Colors.blue;
+   bool bannerVisible;
+   Size size;
+
+  TextBox({
+    required this.id,
+    required this.creator,
+    required this.lastEditor,
+    required this.creationDate,
+    required this.lastUpdateDate,
+    required this.position,
+    required this.controller,
+    this.bannerColor = const Color(0xFF66666E),
+    this.bannerVisible = false,
+    this.size = const Size(200, 200),
+    this.activeUsers = const [],
+  });
+}
+
+class TextBoxProvider extends ChangeNotifier {
+  List<TextBox> _textBoxes = [];
+
+  List<TextBox> get textBoxes => _textBoxes;
+
+  void addTextBox(TextBox textBox) {
+    _textBoxes.add(textBox);
+    notifyListeners();
+  }
+
+  void updateTextBox(TextBox textBox) {
+    int index = _textBoxes.indexWhere((tb) => tb.id == textBox.id);
+    if (index != -1) {
+      _textBoxes[index] = textBox;
+      notifyListeners();
+    }
+  }
+  void updateTextBoxPosition(String id, Offset newPosition) {
+    int index = _textBoxes.indexWhere((tb) => tb.id == id);
+    if (index != -1) {
+      _textBoxes[index].position = newPosition;
+      notifyListeners();
+    }
+  }
+  void updateBoxSize(String id, Size newSize) {
+    int index = _textBoxes.indexWhere((tb) => tb.id == id);
+    if (index != -1) {
+      _textBoxes[index].size = newSize;
+      notifyListeners();
+    }
+  }
+  void updateTextBoxContent(String id, quill.QuillController newController) {
+    int index = _textBoxes.indexWhere((tb) => tb.id == id);
+    if (index != -1) {
+      _textBoxes[index].controller = newController;
+      notifyListeners();
+    }
+  }
+  void updateBannerVisibility(String id, bool newVisibility) {
+    int index = _textBoxes.indexWhere((tb) => tb.id == id);
+    if (index != -1) {
+      _textBoxes[index].bannerVisible = newVisibility;
+      notifyListeners();
+    }
+  }
+  void updateBannerColor(String id, Color newColor) {
+    int index = _textBoxes.indexWhere((tb) => tb.id == id);
+    if (index != -1) {
+      _textBoxes[index].bannerColor = newColor;
+      notifyListeners();
+    }
+  }
+
+  void removeTextBox(String id) {
+    _textBoxes.removeWhere((tb) => tb.id == id);
+    notifyListeners();
+  }
+
+  void clearTextBoxes() {
+    _textBoxes.clear();
+    notifyListeners();
+  }
+
+}
+
+
+
+
 class DrawingOptionsProvider extends StatelessWidget {
   final Widget child;
 
@@ -476,6 +576,9 @@ class DrawingOptionsProvider extends StatelessWidget {
         ),
         ChangeNotifierProvider<EraserOptionsProvider>(
           create: (_) => EraserOptionsProvider(),
+        ),
+        ChangeNotifierProvider<TextBoxProvider>(
+          create: (_) => TextBoxProvider(),
         ),
       ],
       child: child,

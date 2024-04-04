@@ -2,7 +2,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import '../Components/CustomPressueSensitiveWidgets/AIV_freehand_multi_tool_canvas.dart';
+import 'package:innovault/Components/CustomPressueSensitiveWidgets/CanvasRefactored/aiv_canvas.dart';
 
 
 
@@ -24,7 +24,7 @@ class _DashboardState extends State<Dashboard> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const Positioned.fill( child: FreehandMultiDrawingCanvas()),
+         Positioned.fill( child: AIVCanvas( imagePath: 'assets/CF_bodymodel/female/woman_front_face.png',)),
 
 
       ],

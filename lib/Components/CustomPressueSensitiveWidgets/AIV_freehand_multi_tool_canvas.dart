@@ -2,9 +2,13 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:innovault/Components/CustomPressueSensitiveWidgets/ToolsWidgets/ToolBarSettings/EraserSettings.dart';
-import 'package:innovault/Components/CustomPressueSensitiveWidgets/toolbar_freehand.dart';
+
 import 'package:flutter/material.dart';
+import 'package:innovault/constants.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 import 'package:provider/provider.dart';
 
@@ -14,8 +18,10 @@ import 'ToolsWidgets/AIV_Draggable_FAB_V1.dart';
 import 'ToolsWidgets/ToolBarSettings/PanSettings.dart';
 import 'ToolsWidgets/ToolBarSettings/PenSettings.dart';
 import 'ToolsWidgets/ToolBarSettings/PinSettings.dart';
+import 'ToolsWidgets/ToolBarSettings/TextBoxSettings.dart';
 import 'ToolsWidgets/ToolBarSettings/expanded_pin.dart';
 import 'notebook_background_painter.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 // Assuming Toolbar is defined in the same file or imported
 // todo: make sure the drawing doesn;t ever expand beyond the canvas
 // if the line is still going the last stroke should end with a cap
@@ -41,6 +47,10 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 
   final lines = ValueNotifier<List<Stroke>>([]);
   final line = ValueNotifier<Stroke?>(null);
+
+  // Text boxes
+  List<DraggableTextBox> draggableTextBoxes = [];
+  ValueNotifier<bool> isDraggingTextBox = ValueNotifier<bool>(false);
   // pin logic
   List<Pin> pins = [];
   void handleTap(PointerDownEvent details) {
@@ -278,8 +288,67 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
   });
 }
 
+// Define the maximum number of empty boxes
+  static const int MAX_EMPTY_BOXES = 10;
+  void createTextBox(Offset position) {
 
-//
+    // making sure you can't add inifinite amount of empty textboxes
+    // Get the TextBoxProvider
+    var textBoxProvider = Provider.of<TextBoxProvider>(context, listen: false);
+
+    // Check if the maximum limit of empty boxes has been reached
+    int emptyBoxCount = textBoxProvider.textBoxes.where((box) => box.controller.document.isEmpty()).length;
+    if (emptyBoxCount >= MAX_EMPTY_BOXES) {
+
+      // show alert to user that they can't add more empty textboxes
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Maximum Limit Reached'),
+            content: Text('You have reached the maximum limit of empty text boxes.'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
+    TextBox newTextBox = TextBox(
+      id: UniqueKey().toString(),
+      position: position,
+      controller: quill.QuillController.basic(),
+      creator: 'User',
+      lastEditor: 'User',
+      activeUsers: ['User'],
+      creationDate: DateTime.now(),
+      lastUpdateDate: DateTime.now(),
+    );
+
+    Provider.of<TextBoxProvider>(context, listen: false).addTextBox(newTextBox);
+    // Create a new GlobalKey for each DraggableTextBox widget
+    final GlobalKey key = GlobalKey(debugLabel: newTextBox.id);
+    setState(() {
+      draggableTextBoxes.add(
+        DraggableTextBox(
+          key : key,
+          id: newTextBox.id,
+          canvasKey: canvasKey,
+          textBox: newTextBox,
+          activeQuillController: activeQuillController,
+          onRemove: removeTextBox, isDraggingTextBox: isDraggingTextBox,
+        ),
+      );
+    });
+  }
+
 
   // function to switch between modes
   void handleModeChange(PointerMode mode) {
@@ -302,6 +371,11 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
       case PointerMode.none:
         setState(() {
           currentMode = PointerMode.none;
+        });
+        break;
+      case PointerMode.textBox:
+        setState(() {
+          currentMode = PointerMode.textBox;
         });
         break;
       case PointerMode.pin:
@@ -335,6 +409,13 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
       pins = [];
     });
   }
+  void clearTextBoxes() {
+    setState(() {
+      draggableTextBoxes = [];
+    });
+    // clear the provider
+    Provider.of<TextBoxProvider>(context, listen: false).clearTextBoxes();
+  }
 
 
   void closeFloatingToolbar([bool animate = true]) {
@@ -365,6 +446,11 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 
   // #### pointer Logic ####
   void onPointerDown(PointerDownEvent details) {
+    if (isDraggingTextBox.value) {
+      // delete the current line
+      line.value = null;
+      return;
+    }
     pointerPosition.value = details.localPosition;
     isCursorVisible.value = true;
     // eraser mode
@@ -418,6 +504,35 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
     if (currentMode == PointerMode.pin) {
       handleTap(details);
     }
+    // TextBox mode
+      // Get the RenderBox of the FreehandMultiDrawingCanvas widget
+      final RenderBox renderBox = context.findRenderObject() as RenderBox;
+
+      // Convert the global position to the local position
+      final localPosition = renderBox.globalToLocal(details.position);
+
+    // TextBox mode
+    if (currentMode == PointerMode.textBox) {
+      bool isInsideExistingTextBox = false;
+
+      for (var textBox in draggableTextBoxes) {
+        final RenderBox renderBox = textBox.containerKey.currentContext!.findRenderObject() as RenderBox;
+        final textBoxSize = renderBox.size;
+        final textBoxPosition = renderBox.localToGlobal(Offset.zero);
+
+        if (details.position.dx >= textBoxPosition.dx &&
+            details.position.dx <= textBoxPosition.dx + textBoxSize.width &&
+            details.position.dy >= textBoxPosition.dy &&
+            details.position.dy <= textBoxPosition.dy + textBoxSize.height) {
+          isInsideExistingTextBox = true;
+          break;
+        }
+      }
+
+      if (!isInsideExistingTextBox) {
+        createTextBox(details.localPosition);
+      }
+    }
 
   }
 
@@ -426,6 +541,11 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
   int pointCount = 0;
 
   void onPointerMove(PointerMoveEvent details) {
+    if (isDraggingTextBox.value) {
+      // delete the current line
+      line.value = null;
+      return;
+    }
   pointerPosition.value = details.localPosition;
   // eraser mode
   EraserMode currentEraserMode = Provider.of<EraserOptionsProvider>(context, listen: false).currentEraserMode;
@@ -476,6 +596,11 @@ class _FreehandMultiDrawingCanvasState extends State<FreehandMultiDrawingCanvas>
 
 
   void onPointerUp(PointerUpEvent details) {
+    if (isDraggingTextBox.value) {
+      // delete the current line
+      line.value = null;
+      return;
+    }
     // toggle eraser cursor visibility off
     isCursorVisible.value = false;
     if (currentMode == PointerMode.eraser || currentMode == PointerMode.pen) {
@@ -536,14 +661,52 @@ initState() {
   ).animate(floatingToolbarController);
 //
 
+  draggableTextBoxes = Provider.of<TextBoxProvider>(context, listen: false)
+      .textBoxes
+      .map((e) {
+    GlobalKey key = GlobalKey();
+    return DraggableTextBox(
+      key: key,
+      id: e.id,
+      canvasKey: canvasKey,
+      textBox: e,
+      activeQuillController: activeQuillController,
+      isDraggingTextBox: isDraggingTextBox,
+      onRemove: removeTextBox,
+    );
+  }).toList();
 }
+
+void removeTextBox(String id) {
+  setState(() {
+    // Remove the text box from the list
+    draggableTextBoxes.removeWhere((element) => element.id == id);
+    // Remove the text box from the provider
+    Provider.of<TextBoxProvider>(context, listen: false).removeTextBox(id);
+  });
+}
+
+  // Canvas  GlobalKey
+  final canvasKey = GlobalKey();
+  ValueNotifier<Offset> fabPositionNotifier = ValueNotifier(Offset.zero);
+  ValueNotifier<quill.QuillController?> activeQuillController = ValueNotifier(quill.QuillController.basic());
+
+  BackgroundType backgroundType = BackgroundType.grid;
+
+  void updateBackgroundType(BackgroundType type) {
+    debugPrint('updateBackgroundType called with type: $type');
+    setState(() {
+      backgroundType = type;
+    });
+  }
+
 
   @override
   void dispose() {
     super.dispose();
     floatingToolbarController.dispose();
   }
-  ValueNotifier<Offset> fabPositionNotifier = ValueNotifier(Offset.zero);
+
   @override
   Widget build(BuildContext context) {
 
@@ -557,118 +720,134 @@ initState() {
     return Scaffold(
       body:
            Stack(
+             key: canvasKey,
             children: [
               Positioned.fill(
                 child: Listener(
                   onPointerDown: onPointerDown,
                   onPointerMove: onPointerMove,
                   onPointerUp: onPointerUp,
-                  child: Stack(
-                    children: [
+                  child: GestureDetector(
+                    // for unfocusing textboxes
+                    onTap: () {
+                    //   setState(() {
+                    //     for (var element in draggableTextBoxes) {
+                    //       element.currentState!.focusNode.unfocus();
+                    //   }
+                    //
+                    // });
+                      // FocusScope.of(context).unfocus();
+                      },
+                    child: Stack(
+                      children: [
 
-                      CustomPaint(
-                        size: Size.infinite,
-                        painter: NotebookBackgroundPainter(backgroundType: BackgroundType.grid),
-                      ),
-                      // Previous lines
-                      Positioned.fill(
-                        child: RepaintBoundary(
-                          child: ValueListenableBuilder<List<Stroke>>(
-                            valueListenable: lines,
-                            builder: (_, strokes, __) {
+                        CustomPaint(
+                          size: Size.infinite,
+                          painter: NotebookBackgroundPainter(backgroundType: backgroundType),
+                        ),
+                        // Previous lines
+                        Positioned.fill(
+                          child: RepaintBoundary(
+                            child: ValueListenableBuilder<List<Stroke>>(
+                              valueListenable: lines,
+                              builder: (_, strokes, __) {
+                                return RepaintBoundary(
+                                  child: CustomPaint(
+                                    willChange: false,
+                                    painter: MultiStrokePainter(strokes: strokes),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        // Current line
+                        Positioned.fill(
+                          child: ValueListenableBuilder<Stroke?>(
+                            valueListenable: line,
+                            builder: (_, currentStroke, __) {
                               return RepaintBoundary(
                                 child: CustomPaint(
-                                  willChange: false,
-                                  painter: MultiStrokePainter(strokes: strokes),
+
+                                  painter: currentStroke != null ? StrokePainter(stroke: currentStroke,strokeStyle: currentMode) : null,
                                 ),
                               );
                             },
                           ),
                         ),
-                      ),
-                      // Current line
-                      Positioned.fill(
-                        child: ValueListenableBuilder<Stroke?>(
-                          valueListenable: line,
-                          builder: (_, currentStroke, __) {
-                            return RepaintBoundary(
-                              child: CustomPaint(
 
-                                painter: currentStroke != null ? StrokePainter(stroke: currentStroke,strokeStyle: currentMode) : null,
+                        // TextBoxes
+                        ...draggableTextBoxes,
+
+                                  ...pins.map((pin) {
+                                     return Positioned.fromRect(
+                                  rect: Rect.fromCenter(center: pin.position, width: pin.size, height: pin.size),
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                onEnter: (_) {
+                                  debugPrint('Pin entered pin id: ${pin.id} location: ${pin.position}');
+                                },
+                                onExit: (_) {
+                                  debugPrint('Pin exited pin id: ${pin.id} location: ${pin.position}');
+                                },
+                                child: GestureDetector(
+                                  onLongPress: () {
+                                    debugPrint('Long pressed pin id: ${pin.id} location: ${pin.position}');
+                                    debugPrint('number of pins: ${pins.length}, pins are not unique ${pins.map((pin) => pin.id)}');
+                                    Navigator.of(context).push(HeroDialogRoute(
+                    builder: (context) => Center(
+                      child: SizedBox(
+                        height: 600,  // Change as per your requirement
+                        width: 600,
+                        child: Hero(
+                          tag: ValueKey(pin.id),
+                          child: Material(
+                            borderRadius: BorderRadius.circular(30),
+                            child: ExpandedPin(pin: pin),  // Replace with your detailed view
+                          ),
+                        ),
+                      ),
+                    ),
+                                    ));
+                                  },
+                                  child: Hero(
+                                    tag: ValueKey(pin.id),
+                                    child: Material(
+                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.transparent,
+                    child: Tooltip(
+                      message: 'Pin id: ${pin.id} tooltip: ${pin.tooltip}',
+                      triggerMode: TooltipTriggerMode.tap,
+                      child:
+                      Container(
+                        child: ShapeMaker(shapeType: pin.shape, color: pin.color)
+                      ),
+                    ),
+                                    ),
+                                  ),
+                                ),
                               ),
+                                  );
+                    }),
+
+                    // pointer position notifier
+                        ValueListenableBuilder<bool>(
+                          valueListenable: isCursorVisible,
+                          builder: (context, isVisible, _) {
+                            return ValueListenableBuilder<Offset>(
+                              valueListenable: pointerPosition,
+                              builder: (context, position, _) {
+                                return Visibility(
+                                  visible: isVisible && (currentMode == PointerMode.eraser ),
+                                  child: CustomCursor(position: position),
+                                );
+                              },
                             );
                           },
-                        ),
-                      ),
+                        )
 
-              ...pins.map((pin) {
-                 return Positioned.fromRect(
-              rect: Rect.fromCenter(center: pin.position, width: pin.size, height: pin.size),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) {
-              debugPrint('Pin entered pin id: ${pin.id} location: ${pin.position}');
-            },
-            onExit: (_) {
-              debugPrint('Pin exited pin id: ${pin.id} location: ${pin.position}');
-            },
-            child: GestureDetector(
-              onLongPress: () {
-                debugPrint('Long pressed pin id: ${pin.id} location: ${pin.position}');
-                debugPrint('number of pins: ${pins.length}, pins are not unique ${pins.map((pin) => pin.id)}');
-                Navigator.of(context).push(HeroDialogRoute(
-                  builder: (context) => Center(
-                    child: SizedBox(
-                      height: 600,  // Change as per your requirement
-                      width: 600,
-                      child: Hero(
-                        tag: ValueKey(pin.id),
-                        child: Material(
-                          borderRadius: BorderRadius.circular(30),
-                          child: ExpandedPin(pin: pin),  // Replace with your detailed view
-                        ),
-                      ),
+                      ],
                     ),
-                  ),
-                ));
-              },
-              child: Hero(
-                tag: ValueKey(pin.id),
-                child: Material(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Colors.transparent,
-                  child: Tooltip(
-                    message: 'Pin id: ${pin.id} tooltip: ${pin.tooltip}',
-                    triggerMode: TooltipTriggerMode.tap,
-                    child:
-                    Container(
-                      child: ShapeMaker(shapeType: pin.shape, color: pin.color)
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-              );
-                  }),
-
-// pointer position notifier
-                      ValueListenableBuilder<bool>(
-                        valueListenable: isCursorVisible,
-                        builder: (context, isVisible, _) {
-                          return ValueListenableBuilder<Offset>(
-                            valueListenable: pointerPosition,
-                            builder: (context, position, _) {
-                              return Visibility(
-                                visible: isVisible && (currentMode == PointerMode.eraser ),
-                                child: CustomCursor(position: position),
-                              );
-                            },
-                          );
-                        },
-                      )
-
-                    ],
                   ),
                 ),
               ),
@@ -698,7 +877,6 @@ initState() {
                 width: 300,
                 child: Visibility(
                 visible: isFloatingToolbarVisible,
-                  // TODO: tofix reverse animation
                   child: FadeTransition(
                   opacity: opacityAnimation,
                   // child: AnimatedOpacity(
@@ -712,9 +890,11 @@ initState() {
                       child: SingleChildScrollView(
                           child: PenSettingsLayoutBuilder(
                               currentMode: currentMode,
+                              activeQuillController: activeQuillController,
                               clearStrokes: clearStrokes,
                               clearPins: clearPins,
-                            onModeChanged: handleModeChange,
+                              clearTextBoxes: clearTextBoxes,
+                            onModeChanged: handleModeChange, backgroundType: backgroundType,updateBackgroundType: updateBackgroundType,
                           )))
                   // Define the content and styling for your long-press menu here
                   ),
@@ -735,13 +915,23 @@ initState() {
 class PenSettingsLayoutBuilder extends StatelessWidget {
   final Function() clearStrokes;
   final Function() clearPins;
+  final Function() clearTextBoxes;
   final Function(PointerMode) onModeChanged;
+  final ValueListenable<QuillController?>  activeQuillController;
+
+  //pan settings
+  final BackgroundType backgroundType;
+  final Function(BackgroundType) updateBackgroundType;
   const PenSettingsLayoutBuilder({
     super.key,
+    required this.activeQuillController,
     required this.currentMode,
     required this.clearStrokes,
     required this.clearPins,
     required this.onModeChanged,
+    required this.clearTextBoxes,
+    required this.backgroundType,
+    required this.updateBackgroundType,
   });
 
   final PointerMode currentMode;
@@ -754,18 +944,21 @@ class PenSettingsLayoutBuilder extends StatelessWidget {
         case PointerMode.pen:
           return const PenSettings();
 
-
-            case PointerMode.eraser:
-              return  EraserSettings(
+        case PointerMode.eraser:
+           return  EraserSettings(
                   initialMode: PointerMode.eraser,
                   clearAllStrokes: clearStrokes,
                   clearAllPins: clearPins,
+                  clearAllTextBoxes: clearTextBoxes,
                   onModeChanged: onModeChanged,);
-            case PointerMode.pin:
-              return  PinSettings();
-
+        case PointerMode.pin:
+            return  PinSettings();
             case PointerMode.none:
-              return const PanSettings();
+              return  PanSettings( backgroundType: backgroundType, updateBackgroundType: updateBackgroundType);
+
+              case PointerMode.textBox:
+              return  TextBoxSettings(quillController:activeQuillController);
+
             default :
               return const Center(child: Text('No mode selected'));
 
@@ -1071,6 +1264,532 @@ class CustomCursor extends StatelessWidget {
   }
 }
 
+class DraggableTextBox extends StatefulWidget {
+  String id;
+   GlobalKey canvasKey;
+   GlobalKey key;
+   GlobalKey containerKey = GlobalKey();
+   TextBox textBox;
+   Function onRemove;
+   // activeQuillController
+   ValueNotifier<quill.QuillController?> activeQuillController;
+  ValueNotifier<bool> isDraggingTextBox;
+  DraggableTextBox({ required this.id, required this.key, required this.canvasKey, required this.textBox, required this.activeQuillController, required this.onRemove, required this.isDraggingTextBox});
+
+
+  @override
+  _DraggableTextBoxState createState() => _DraggableTextBoxState(key, containerKey); // Pass the new GlobalKey to the state
+
+
+
+}
+
+
+
+class _DraggableTextBoxState extends State<DraggableTextBox> {
+  Offset position = Offset.zero;
+  // quill.QuillController _controller = quill.QuillController.basic();
+  GlobalKey key;
+  GlobalKey containerKey; // Define a new GlobalKey for the Container
+  final FocusNode _focusNode = FocusNode();
+  FocusScopeNode _focusScopeNode = FocusScopeNode();
+  bool _isDragging = false;
+
+
+  _DraggableTextBoxState(this.key, this.containerKey);
+
+  void _showMenu(BuildContext context, Offset tapPosition) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromPoints(
+          tapPosition,
+          tapPosition,
+        ),
+        Offset.zero & overlay.size,
+      ),
+      constraints: BoxConstraints(
+        minWidth: 100,
+        maxWidth: 200,
+      ),
+      items: <PopupMenuEntry>[
+        PopupMenuItem(
+          child: TextButton(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Icon(CupertinoIcons.info, size: 18,),
+                const SizedBox(width: 10),
+                Text('Info'),
+              ],
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _showInfoDialog();
+            },
+          ),
+        ),
+        PopupMenuItem(
+          child: TextButton(
+            child: Row(
+              children: [
+                Icon(Icons.delete,  color: Colors.redAccent, size: 18),
+                const SizedBox(width: 10),
+                Text('Delete'),
+              ],
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _showDeleteConfirmationDialog();
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Info'),
+          content:
+              SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('ID: ${widget.textBox.id}'),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(child: Text('Creator: ${widget.textBox.creator}', overflow: TextOverflow.ellipsis,)),
+                        Flexible(child: Text('${widget.textBox.creationDate}')),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(child: Text('Last Editor: ${widget.textBox.lastEditor}', overflow: TextOverflow.ellipsis,)),
+                        Flexible(child: Text('${widget.textBox.lastUpdateDate}'),),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+                    // color piker + always visible checkbox
+                    Flexible(child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+
+                          height: 100,
+                          width: 300,
+                          padding: EdgeInsets.all(10),
+                          child: BannerColorPicker(id: widget.textBox.id,),),
+                        const SizedBox(width: 10),
+                        // always visible checkbox
+                        Row(
+                          children: [
+                            const Text('Banner Always Visible'),
+          Consumer<TextBoxProvider>(
+            builder: (context, textBoxProvider, child) {
+              return Checkbox(
+                value: widget.textBox.bannerVisible,
+                onChanged: (bool? value) {
+                  textBoxProvider.updateBannerVisibility(widget.textBox.id, value!);
+                  setState(() {
+                    widget.textBox.bannerVisible = value;
+                  });
+                },
+              );
+            },
+          )
+                                                ],
+                                              )
+                  ],
+                ),),]),
+              ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm Deletion'),
+          content: Text('Are you sure you want to delete this text box?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                widget.onRemove(widget.textBox.id);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    position = widget.textBox.position;
+    _focusScopeNode = FocusScopeNode();
+    _focusNode.requestFocus();
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        widget.activeQuillController.value = widget.textBox.controller;
+      }
+    });
+
+    _focusScopeNode.addListener(_handleScopeFocusChange);
+
+  }
+  void _handleFocusChange() {
+    if (_focusNode.hasFocus) {
+      widget.activeQuillController.value = widget.textBox.controller;
+    }
+    // Trigger a rebuild whenever focus changes
+    setState(() {});
+  }
+  void _handleScopeFocusChange() {
+    if (_focusScopeNode.hasFocus) {
+      print('Focus gained');
+    } else {
+      print('Focus lost');
+    }
+    // Trigger a rebuild whenever focus changes
+    setState(() {});
+  }
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    _focusScopeNode.dispose();
+    super.dispose();
+  }
+  ValueNotifier<bool> isBorderVisible = ValueNotifier<bool>(true);
+  @override
+  Widget build(BuildContext context) {
+  return Positioned(
+    left: position.dx,
+    top: position.dy,
+    child: GestureDetector(
+      onTap: () {
+        // setState(() {
+        //   _focusNode.requestFocus();
+        // });
+        // Request focus for the current text box
+        _focusScopeNode.requestFocus(_focusNode);
+        debugPrint('tapped on text box with content:'
+            ' ${widget.textBox.controller.document.toPlainText()} '
+            'and focus node has focus: ${_focusNode.hasFocus}'
+            'and focus scope node has focus: ${_focusScopeNode.hasFocus}');
+      },
+      child: SizedBox(
+       width: widget.textBox.size.width,
+        height: widget.textBox.size.height,
+        child: Stack(
+          children: [
+
+          // Rich Text Editor
+            Positioned.fill(
+              child: FocusScope(
+                node: _focusScopeNode,
+                child: Container(
+                  key: containerKey,
+                  decoration: BoxDecoration(
+                   //all borders but top
+                    border:  Border(
+                      bottom: BorderSide(
+                        // check if document s empty
+                        color: _focusScopeNode.hasFocus || widget.textBox.controller.document.isEmpty() ? Colors.black : Colors.transparent,
+
+                      ),
+                      left: BorderSide(
+                        color: _focusScopeNode.hasFocus || widget.textBox.controller.document.isEmpty() ? Colors.black : Colors.transparent,
+
+                      ),
+                      right: BorderSide(
+                        color: _focusScopeNode.hasFocus || widget.textBox.controller.document.isEmpty() ? Colors.black : Colors.transparent,
+
+                      ),
+                    ),
+                    borderRadius: BorderRadius.circular(5),),
+
+                  padding: const EdgeInsets.fromLTRB(8, 30, 8, 8),
+                  child: Column(
+                    children: [
+                      // quill Text Box
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          quill.QuillEditor.basic(
+                            focusNode: _focusNode,
+                            configurations: quill.QuillEditorConfigurations(
+                              controller: widget.textBox.controller,
+                              autoFocus: false,
+                              readOnly: false,
+                              sharedConfigurations: const quill.QuillSharedConfigurations(
+                                locale: Locale('en'),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+
+
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // drag and option bar
+            Positioned.fromRect(
+              rect: Rect.fromLTWH(0, 0, widget.textBox.size.width, 20),
+              child:  Visibility(
+                visible: widget.textBox.bannerVisible? true :_focusScopeNode.hasFocus || widget.textBox.controller.document.isEmpty(),
+                child: GestureDetector(
+                    onPanUpdate: (details) {
+                      // consider using localPosition instead of details.delta
+                      // final RenderBox renderBox = widget.canvasKey.currentContext!.findRenderObject() as RenderBox;
+                      // final localPosition = renderBox.globalToLocal(details.offset);
+                      widget.isDraggingTextBox.value = true;
+                      setState(() {
+                        position += details.delta;
+                      });
+                    },
+                    onPanEnd: (details) {
+                      widget.isDraggingTextBox.value = false;
+                    },
+                    onLongPressEnd: (details) {
+                      _focusScopeNode.requestFocus(_focusNode);
+                      _showMenu(context, details.globalPosition);
+                    },
+
+
+                    child: Container(
+                      decoration:  BoxDecoration(
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(5),
+                          topRight: Radius.circular(5),
+                        ),
+                        // color: Color(0xFFEBEBEB),
+                        color: widget.textBox.bannerColor,
+                      ),
+                      height: 20,
+                      width: double.infinity,
+                    )),
+              ),),
+            // resize handle
+            Positioned(
+              bottom: 2,
+              right: 2,
+              child: Visibility(
+                visible: _focusScopeNode.hasFocus || widget.textBox.controller.document.isEmpty(),
+                child: GestureDetector(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      // Update the size of the widget
+                      // minimum of 200x200
+                      widget.isDraggingTextBox.value = true;
+                      Provider.of<TextBoxProvider>(context, listen: false).
+                      updateBoxSize(widget.textBox.id,
+                          Size(
+                            max(200, widget.textBox.size.width + details.delta.dx),
+                            max(200, widget.textBox.size.height + details.delta.dy),
+                          ));
+                    });
+                  },
+                  onPanEnd: (details) {
+                    widget.isDraggingTextBox.value = false;
+                  },
+                  child: Icon(Icons.zoom_out_map, size: 20,), // Replace with your resize handle widget
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+}
+
+
+class BannerColorPicker extends StatelessWidget {
+  final List<Color> defaultColors = defaultColorsList;
+  final String id;
+  BannerColorPicker({required this.id});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<TextBoxProvider>(
+      builder: (context, textBoxProvider, child) {
+        final textbox = Provider.of<TextBoxProvider>(context, listen: false).textBoxes.firstWhere((element) => element.id == id);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: textbox.bannerColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(width: 20),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.grey,
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: GridView.count(
+                  crossAxisCount: 6,
+                  padding: EdgeInsets.zero,
+                  scrollDirection: Axis.vertical,
+                  crossAxisSpacing: 5,
+                  mainAxisSpacing: 15,
+                  children: defaultColors.map((color) {
+                    return GestureDetector(
+                      onTap: () {
+                        Provider.of<TextBoxProvider>(context, listen: false).updateBannerColor(id,color);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: textbox.bannerColor == color ? [
+                            BoxShadow(
+                              color: color.withOpacity(0.8),
+                              spreadRadius: 1,
+                              blurRadius: 2,
+                              offset: Offset(0, 1),
+                            ),
+                          ] : [],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+    );
+  }
+}
+
+
+// v1 _draggable text box state
+
+// class _DraggableTextBoxState extends State<DraggableTextBox> {
+//   Offset position = Offset.zero;
+//   quill.QuillController _controller = quill.QuillController.basic();
+//   GlobalKey key;
+//   GlobalKey containerKey; // Define a new GlobalKey for the Container
+//   FocusNode _focusNode = FocusNode();
+//
+//   _DraggableTextBoxState(this.key, this.containerKey);
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     position = widget.position;
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Positioned(
+//       left: position.dx,
+//       top: position.dy,
+//       child: Draggable(
+//         onDragEnd: (details) {
+//           final RenderBox renderBox = widget.canvasKey.currentContext!.findRenderObject() as RenderBox;
+//           final localPosition = renderBox.globalToLocal(details.offset);
+//           setState(() {
+//             position = localPosition;
+//           });
+//         },
+//         feedback: Material(
+//           elevation: 6,
+//           child: Container(
+//             decoration: BoxDecoration(
+//               border: Border.all(color: Colors.black),
+//               borderRadius: BorderRadius.circular(5),
+//               color: Colors.white,
+//
+//             ),
+//             width: widget.size.width,
+//             height: widget.size.height,
+//             padding: const EdgeInsets.all(8),
+//           ),
+//         ),
+//         childWhenDragging: Container(),
+//         child: Container(
+//           key: containerKey,
+//           decoration: BoxDecoration(
+//             border: Border.all(
+//
+//               color: _controller.document.length == 0 || !_focusNode.hasFocus ? Colors.black : Colors.transparent,),
+//             borderRadius: BorderRadius.circular(5),
+//           ),
+//           width: widget.size.width,
+//           padding: const EdgeInsets.all(8),
+//           child: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               quill.QuillEditor.basic(
+//                 focusNode: _focusNode,
+//                 configurations: quill.QuillEditorConfigurations(
+//                   controller: _controller,
+//
+//                   readOnly: false,
+//                   sharedConfigurations: const quill.QuillSharedConfigurations(
+//                     locale: Locale('en'),
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
 // TODO: good painter for drawing maybe without using perfect freehand
 // class StrokePainter extends CustomPainter {
 //   final Stroke stroke;
