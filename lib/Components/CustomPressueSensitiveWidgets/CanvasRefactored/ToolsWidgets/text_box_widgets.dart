@@ -35,8 +35,8 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
   GlobalKey key;
   GlobalKey containerKey; // Define a new GlobalKey for the Container
   final FocusNode _focusNode = FocusNode();
-  FocusScopeNode _focusScopeNode = FocusScopeNode();
-  bool _isDragging = false;
+  final FocusScopeNode _focusScopeNode = FocusScopeNode();
+  // bool _isDragging = false;
 
 
   _DraggableTextBoxState(this.key, this.containerKey);
@@ -202,7 +202,8 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
   void initState() {
     super.initState();
     position = widget.textBox.position;
-    _focusScopeNode = FocusScopeNode();
+    _focusScopeNode.addListener(_handleScopeFocusChange);
+    // _focusScopeNode.requestFocus(_focusNode);
     _focusNode.requestFocus();
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
@@ -210,8 +211,18 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
       }
     });
 
-    _focusScopeNode.addListener(_handleScopeFocusChange);
 
+
+  }
+
+  void _handleScopeFocusChange() {
+    if (_focusScopeNode.hasFocus) {
+      debugPrint('Focus gained');
+    } else {
+      debugPrint('Focus lost');
+    }
+    // Trigger a rebuild whenever focus changes
+    setState(() {});
   }
   void _handleFocusChange() {
     if (_focusNode.hasFocus) {
@@ -220,18 +231,12 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
     // Trigger a rebuild whenever focus changes
     setState(() {});
   }
-  void _handleScopeFocusChange() {
-    if (_focusScopeNode.hasFocus) {
-      print('Focus gained');
-    } else {
-      print('Focus lost');
-    }
-    // Trigger a rebuild whenever focus changes
-    setState(() {});
-  }
+
   @override
   void dispose() {
     _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
+_focusScopeNode.removeListener(_handleFocusChange);
     _focusScopeNode.dispose();
     super.dispose();
   }
@@ -243,9 +248,9 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
       top: position.dy,
       child: GestureDetector(
         onTap: () {
-          // setState(() {
-          //   _focusNode.requestFocus();
-          // });
+          setState(() {
+            _focusNode.requestFocus();
+          });
           // Request focus for the current text box
           _focusScopeNode.requestFocus(_focusNode);
           debugPrint('tapped on text box with content:'
@@ -360,6 +365,7 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
                       setState(() {
                         // Update the size of the widget
                         // minimum of 200x200
+                        debugPrint('resizing');
                         widget.isDraggingTextBox.value = true;
                         Provider.of<TextBoxProvider>(context, listen: false).
                         updateBoxSize(widget.textBox.id,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../AppStructure/UnderContruction.dart';
-import '../../notebook_background_painter.dart';
+import '../../CanvasRefactored/notebook_background_painter.dart';
 
 class PanSettings extends StatefulWidget {
   final BackgroundType backgroundType;

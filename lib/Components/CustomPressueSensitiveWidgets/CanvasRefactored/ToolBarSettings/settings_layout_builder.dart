@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 import '../../../../Functions/Providers/pen_options_provider.dart';
-import '../../notebook_background_painter.dart';
+import '../notebook_background_painter.dart';
 import 'EraserSettings.dart';
 import 'PanSettings.dart';
 import 'PenSettings.dart';

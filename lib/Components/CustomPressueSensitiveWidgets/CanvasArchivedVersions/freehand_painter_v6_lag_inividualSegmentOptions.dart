@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 import 'dart:ui';
-import 'package:innovault/Components/CustomPressueSensitiveWidgets/toolbar_freehand.dart';
 import 'package:flutter/material.dart';
+import 'package:innovault/Components/CustomPressueSensitiveWidgets/CanvasArchivedVersions/toolbar_freehand.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 
 class Stroke {

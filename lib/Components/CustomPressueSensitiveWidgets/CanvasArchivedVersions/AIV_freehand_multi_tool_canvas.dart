@@ -12,16 +12,18 @@ import 'package:innovault/constants.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 import 'package:provider/provider.dart';
 
-import '../../Functions/Providers/pen_options_provider.dart';
-import '../AppStructure/hero_routes.dart';
-import 'ToolsWidgets/AIV_Draggable_FAB_V1.dart';
-import 'ToolsWidgets/ToolBarSettings/PanSettings.dart';
-import 'ToolsWidgets/ToolBarSettings/PenSettings.dart';
-import 'ToolsWidgets/ToolBarSettings/PinSettings.dart';
-import 'ToolsWidgets/ToolBarSettings/TextBoxSettings.dart';
-import 'ToolsWidgets/ToolBarSettings/expanded_pin.dart';
-import 'notebook_background_painter.dart';
+import '../../../Functions/Providers/pen_options_provider.dart';
+import '../../AppStructure/hero_routes.dart';
+import '../ToolsWidgets/AIV_Draggable_FAB_V1.dart';
+import '../ToolsWidgets/ToolBarSettings/PanSettings.dart';
+import '../ToolsWidgets/ToolBarSettings/PenSettings.dart';
+import '../ToolsWidgets/ToolBarSettings/PinSettings.dart';
+import '../ToolsWidgets/ToolBarSettings/TextBoxSettings.dart';
+import '../ToolsWidgets/ToolBarSettings/expanded_pin.dart';
+
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+
+import 'notebook_background_painter.dart';
 // Assuming Toolbar is defined in the same file or imported
 // todo: make sure the drawing doesn;t ever expand beyond the canvas
 // if the line is still going the last stroke should end with a cap
@@ -691,9 +693,9 @@ void removeTextBox(String id) {
   ValueNotifier<Offset> fabPositionNotifier = ValueNotifier(Offset.zero);
   ValueNotifier<quill.QuillController?> activeQuillController = ValueNotifier(quill.QuillController.basic());
 
-  BackgroundType backgroundType = BackgroundType.grid;
+  BackgroundType_OLD backgroundType = BackgroundType_OLD.grid;
 
-  void updateBackgroundType(BackgroundType type) {
+  void updateBackgroundType(BackgroundType_OLD type) {
     debugPrint('updateBackgroundType called with type: $type');
     setState(() {
       backgroundType = type;
@@ -920,8 +922,8 @@ class PenSettingsLayoutBuilder extends StatelessWidget {
   final ValueListenable<QuillController?>  activeQuillController;
 
   //pan settings
-  final BackgroundType backgroundType;
-  final Function(BackgroundType) updateBackgroundType;
+  final BackgroundType_OLD backgroundType;
+  final Function(BackgroundType_OLD) updateBackgroundType;
   const PenSettingsLayoutBuilder({
     super.key,
     required this.activeQuillController,
@@ -954,7 +956,7 @@ class PenSettingsLayoutBuilder extends StatelessWidget {
         case PointerMode.pin:
             return  PinSettings();
             case PointerMode.none:
-              return  PanSettings( backgroundType: backgroundType, updateBackgroundType: updateBackgroundType);
+              // return  PanSettings( backgroundType: backgroundType, updateBackgroundType: updateBackgroundType);
 
               case PointerMode.textBox:
               return  TextBoxSettings(quillController:activeQuillController);
@@ -1467,7 +1469,7 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
       }
     });
 
-    _focusScopeNode.addListener(_handleScopeFocusChange);
+    // _focusScopeNode.addListener(_handleScopeFocusChange);
 
   }
   void _handleFocusChange() {
@@ -1477,15 +1479,15 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
     // Trigger a rebuild whenever focus changes
     setState(() {});
   }
-  void _handleScopeFocusChange() {
-    if (_focusScopeNode.hasFocus) {
-      print('Focus gained');
-    } else {
-      print('Focus lost');
-    }
-    // Trigger a rebuild whenever focus changes
-    setState(() {});
-  }
+  // void _handleScopeFocusChange() {
+  //   if (_focusScopeNode.hasFocus) {
+  //     print('Focus gained');
+  //   } else {
+  //     print('Focus lost');
+  //   }
+  //   // Trigger a rebuild whenever focus changes
+  //   setState(() {});
+  // }
   @override
   void dispose() {
     _focusNode.removeListener(_handleFocusChange);

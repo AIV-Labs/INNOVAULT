@@ -16,13 +16,18 @@ class DraggableFab extends StatefulWidget {
   final Function toggleSettingsON;
   final Function toggleSettingsOFF;
   final isSettingsVisible;
+  final isSettingsLocked;
+  // fab position notifiers
+  ValueNotifier<Offset> fabPositionNotifier;
 
-  const DraggableFab({
+   DraggableFab({
     required this.onModeChange,
     required this.currentMode,
     required this.toggleSettingsON,
     required this.toggleSettingsOFF,
     required this.isSettingsVisible,
+    required this.fabPositionNotifier,
+    required this.isSettingsLocked,
     Key? key,
   }) : super(key: key);
 
@@ -31,8 +36,9 @@ class DraggableFab extends StatefulWidget {
 }
 
 class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderStateMixin {
-  Offset position = Offset(50, 50);
+
   bool isFabOpen = false;
+  bool isTooltipVisible = false;
   // State to track visibility of the long-press menu
 
   late AnimationController _controller;
@@ -56,90 +62,129 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
   bool wasSettingsVisibleBeforeFabOpened = false;
 
   void _toggleFab() {
-    setState(() {
-      isFabOpen = !isFabOpen;
+  setState(() {
+    isFabOpen = !isFabOpen;
+    if (!widget.isSettingsLocked) {
       if (isFabOpen) {
+        isTooltipVisible = false;
         wasSettingsVisibleBeforeFabOpened = widget.isSettingsVisible;
         _controller.forward();
       } else {
-        // TODO: fix restoreSettingsVisibility; so it doesn't auto close when reopened
         if (wasSettingsVisibleBeforeFabOpened) {
           widget.toggleSettingsON();
         }
+        // for tooltip to not show if the settings are visible
+        isTooltipVisible = true;
         _controller.reverse();
       }
+    }
+    else {
+      if (isFabOpen) {
+        isTooltipVisible = false;
+        _controller.forward();
+      } else {
+        isTooltipVisible = true;
+        _controller.reverse();
+      }
+    }
+
+  });
+  Future.delayed(const Duration(seconds: 2), () {
+    setState(() {
+      isTooltipVisible = false;
     });
-  }
-
-
+  });
+}
 
   // global key for main fab
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     return Positioned(
-      left: position.dx,
-      top: position.dy,
-        child: Stack(
-          alignment: Alignment.center,
-          children: <Widget>[
-            // If the FAB is open, display action buttons and ensure they're interactable
-
-            _buildActionButtons(screenSize),
-
-
-            // Main FAB handling drag, tap, and long-press
-            Positioned(
-
-              child: GestureDetector(
-                onPanUpdate: (details) {
-                  // Allow dragging only if the FAB isn't open and no long-press menu is visible
-                  if (!isFabOpen ) {
-                    setState(() {
-                      position += details.delta;
-                    });
-                  }
-                },
-                onLongPress: () {
-
-                  if (isFabOpen) {
-                    _toggleFab();
-                  }
-                  if (widget.isSettingsVisible) {
-                    widget.toggleSettingsOFF();
-                  } else {
-                    widget.toggleSettingsON();
-                  }
-
+        left: widget.fabPositionNotifier.value.dx,
+        top: widget.fabPositionNotifier.value.dy,
+        child: RepaintBoundary(
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              // If the FAB is open, display action buttons and ensure they're interactable
+          
+              _buildActionButtons(screenSize),
+          
+          
+              // Main FAB handling drag, tap, and long-press
+              Positioned(
+          
+                child: GestureDetector(
+                  onPanUpdate: (details) {
+                    // Allow dragging only if the FAB isn't open and no long-press menu is visible
+                    if (!isFabOpen ) {
+                      setState(() {
+          
+                        widget.fabPositionNotifier.value = Offset(
+                          widget.fabPositionNotifier.value.dx + details.delta.dx,
+                          widget.fabPositionNotifier.value.dy + details.delta.dy,
+                        );
+                      });
+                    }
                   },
-                onTap: () {
-                  if (!isFabOpen) {
-                    widget.toggleSettingsOFF(false);
-                  }
-                  _toggleFab();
-              },
-                // Main FAB
-                  child: Stack(
-                    children:[
-                      Positioned.fill(
-                        child: const IgnorePointer(
-                          ignoring: true,
+                  onLongPress: () {
+          
+                    if (isFabOpen) {
+                      _toggleFab();
+                    }
+                    if (widget.isSettingsVisible) {
+                      widget.toggleSettingsOFF();
+                    } else {
+                      widget.toggleSettingsON();
+                    }
+          
+                    },
+                  onTap: () {
+                    if (!isFabOpen && !widget.isSettingsLocked) {
+                      widget.toggleSettingsOFF(false);
+                    }
+                    _toggleFab();
+                },
+                  // Main FAB
+                    child: Stack(
+                      children:[
+                        Positioned.fill(
+                          child: const IgnorePointer(
+                            ignoring: true,
+                          ),
                         ),
-                      ),
-                      FloatingActionButton(
-                        heroTag: 'mainfab',
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      backgroundColor: Color(0xffebebeb),
-                      onPressed: null, // Null disables the default onPressed behavior
-                      child: isFabOpen ? Icon(Icons.close) : _getIconForMode(widget.currentMode),
-                    ),]
+                        Column(
+                          children: [
+                            FloatingActionButton(
+                              heroTag: 'mainfab',
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              backgroundColor: Color(0xffebebeb),
+                              onPressed: null, // Null disables the default onPressed behavior
+                              child: isFabOpen ? Icon(Icons.close) : _getIconForMode(widget.currentMode),
+                            ),
+                            const SizedBox(height: 5),
+                            // text
+          
+                            AnimatedOpacity(
+                              // opacity: !isFabOpen && !widget.isSettingsVisible ? 1.0 : 0.0,
+                              opacity: isTooltipVisible ? 1.0 : 0.0,
+                              duration: Duration(milliseconds: 250),
+                              curve: Curves.decelerate,
+                              child: Text('Tap/Hold for more options',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF0b090a), fontFamily: 'Poppins', fontWeight: FontWeight.w500),),
+                            )
+                          ],
+                        ),
+                      ]
+                    ),
                   ),
                 ),
-              ),
-
-          ],
+          
+            ],
+          ),
         ),
     );
   }
@@ -188,8 +233,8 @@ class _DraggableFabState extends State<DraggableFab> with SingleTickerProviderSt
     final double distance = 80.0;
     List<Widget> buttons = [];
     // Use the start angle calculated based on the FAB's position
-    var details = calculateBestStartAngle(screenSize, position);
-    var overlayDetails = calculateOverlayDetails(screenSize, position, distance);
+    var details = calculateBestStartAngle(screenSize, widget.fabPositionNotifier.value);
+    var overlayDetails = calculateOverlayDetails(screenSize, widget.fabPositionNotifier.value, distance);
 
     double startAngle = details.startAngle;  // Use the calculated start angle
     double angleIncrement = math.pi / 4; // Modify this to change the spread of buttons

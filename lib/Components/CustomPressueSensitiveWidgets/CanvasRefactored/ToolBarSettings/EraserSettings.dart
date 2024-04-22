@@ -42,14 +42,17 @@ void initState() {
       children: [
 
      Text('Eraser Size:'),
-      const SizedBox(width: 10),
-      Slider(
-        min: 10.0, // Minimum eraser size
-        max: 200.0, // Maximum eraser size
-        value: Provider.of<EraserOptionsProvider>(context).size,
-        onChanged: (double newSize) {
-          Provider.of<EraserOptionsProvider>(context, listen: false).updateSize(newSize);
-          },
+
+      Flexible(
+        flex: 3,
+        child: Slider(
+          min: 10.0, // Minimum eraser size
+          max: 200.0, // Maximum eraser size
+          value: Provider.of<EraserOptionsProvider>(context).size,
+          onChanged: (double newSize) {
+            Provider.of<EraserOptionsProvider>(context, listen: false).updateSize(newSize);
+            },
+        ),
       ),
       ],
     ),

@@ -1,16 +1,17 @@
+import 'dart:math';
 import 'dart:ui';
 
-import 'package:innovault/Components/CustomPressueSensitiveWidgets/toolbar_freehand.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:innovault/Components/CustomPressueSensitiveWidgets/CanvasArchivedVersions/toolbar_freehand.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 
 import 'notebook_background_painter.dart';
 
-// Assuming Toolbar is defined in the same file or imported
 
-//Todo: ADD Mechanism to automatically create a new stroke after a stroke has more than x points to prevent stuttering
-  // TODO: if there is no line and it is jsut one point make it a circle
-  // if the line is still going the last stroke should end with a cap
+// Assuming Toolbar is defined in the same file or imported
+// todo: make sure the drawing doesn;t ever expand beyond the canvas
+// if the line is still going the last stroke should end with a cap
 class FreehandDrawingCanvas extends StatefulWidget {
   const FreehandDrawingCanvas({Key? key}) : super(key: key);
 
@@ -22,16 +23,17 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
     size: 2,
     thinning: 0.7,
     smoothing: 0.6,
-    streamline: 0.6,
+    streamline: 0.34,
+    easing: (double t) => t/2,
     start: StrokeEndOptions.start(
       taperEnabled: false,
-      customTaper: 0.0,
-      cap: false,
+      cap: true,
+      // customTaper: 2,
     ),
     end: StrokeEndOptions.end(
-      taperEnabled: true,
-      customTaper: 0.0,
+      taperEnabled: false,
       cap: true,
+      // customTaper: 2,
     ),
     simulatePressure: true,
     isComplete: false,
@@ -50,7 +52,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
       // Linear interpolation between the minimum and maximum values
       options = options.copyWith(
         size: newSize,
-        streamline: 0.6 + (newSize - 2 >0 ? newSize - 2:1 ) * (1 - 0.6) / (20 - 2),
+        streamline: 0.3 + (newSize - 2 >0 ? newSize - 2:1 ) * (1 - 0.6) / (20 - 2),
         smoothing: 1- (newSize - 2 >0 ? newSize - 2:1 ) * (1 - 0) / (20 - 2),
       );
     });
@@ -64,7 +66,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
   Color _currentColor = Colors.black;
   void updateStrokeColor(Color newColor) {
     setState(() {
-      currentStrokeStyle.color = newColor;
+      currentStrokeStyle = currentStrokeStyle.copyWith(color: newColor);
     });
 
   }
@@ -73,7 +75,20 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
 
   void eraseStrokeAtPoint(Offset point) {
     lines.value = lines.value.where((stroke) {
-      return !doesStrokeContainPoint(stroke, point);
+      if (doesStrokeContainPoint(stroke, point)) {
+        return false;
+      }
+
+      // Check if the stroke is a dot and if it's within a certain distance of the eraser point
+      if (stroke.points.length <= 8) {
+        final dotPoint = stroke.points.first;
+        final distance = sqrt(pow(dotPoint.x - point.dx, 2) + pow(dotPoint.y - point.dy, 2));
+        if (distance <= stroke.style.size) {
+          return false;
+        }
+      }
+
+      return true;
     }).toList();
   }
   bool doesStrokeContainPoint(Stroke stroke, Offset point) {
@@ -99,170 +114,33 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
     pointCount = 0;
   }
 
-  void onPointerDown(PointerDownEvent details) {
-    if (isEraserMode) {
-      eraseStrokeAtPoint(details.localPosition);
-    } else {
-      final supportsPressure = details.kind == PointerDeviceKind.stylus;
-      // options = options.copyWith(simulatePressure: !supportsPressure);
+void onPointerDown(PointerDownEvent details) {
+  if (isEraserMode) {
+    eraseStrokeAtPoint(details.localPosition);
+  } else {
+    final supportsPressure = details.kind == PointerDeviceKind.stylus;
+    options = options.copyWith(simulatePressure: !supportsPressure);
 
-      final localPosition = details.localPosition;
-      final point = PointVector(
-        localPosition.dx,
-        localPosition.dy,
-        supportsPressure ? details.pressure : null,
-      );
+    final localPosition = details.localPosition;
+    final point = PointVector(
+      localPosition.dx,
+      localPosition.dy,
+      supportsPressure ? details.pressure : null,
+    );
 
-      // Create a new StrokeStyle for the new stroke
-      final strokeStyle = StrokeStyle(size: currentStrokeStyle.size, color: currentStrokeStyle.color);
+    // Create a new StrokeStyle for the new stroke
+    final newStrokeStyle = StrokeStyle(size: currentStrokeStyle.size, color: currentStrokeStyle.color);
 
+    // Use the current color and size when creating a new stroke
+    line.value = Stroke([point, point], options, newStrokeStyle);
 
-      // Use the current color and size when creating a new stroke
-      line.value = Stroke([point], options, strokeStyle);
-    }
+    // Add this line to draw a circle at the tap location
+    lines.value = [...lines.value, line.value!];
+    line.value = null;
   }
+}
 
-  // v1 on pointer move
-  // void onPointerMove(PointerMoveEvent details) {
-  //   if (isEraserMode) {
-  //     eraseStrokeAtPoint(details.localPosition);
-  //   } else {
-  //     final supportsPressure = details.pressureMin < 1;
-  //     final localPosition = details.localPosition;
-  //     final point = PointVector(
-  //       localPosition.dx,
-  //       localPosition.dy,
-  //       supportsPressure ? details.pressure : null,
-  //     );
-  //
-  //     if (line.value != null) {
-  //       // Use the same StrokeStyle when adding a point to the stroke
-  //       line.value = Stroke([...line.value!.points, point], options, line.value!.style);
-  //
-  //     }
-  //
-  //   }
-  // }
-
-  static const int MAX_POINTS = 750; // Define your own threshold here
-  int pointCount = 0;
-  // v2 on pointer move : threshold for adding new point to stroke
-
-  // void onPointerMove(PointerMoveEvent details) {
-  //   if (isEraserMode) {
-  //     eraseStrokeAtPoint(details.localPosition);
-  //   } else {
-  //     final supportsPressure = details.pressureMin < 1;
-  //     final localPosition = details.localPosition;
-  //     final point = PointVector(
-  //       localPosition.dx,
-  //       localPosition.dy,
-  //       supportsPressure ? details.pressure : null,
-  //     );
-  //
-  //     if (line.value != null) {
-  //       // Use the same StrokeStyle when adding a point to the stroke
-  //       line.value = Stroke([...line.value!.points, point], options, line.value!.style);
-  //       pointCount++;
-  //
-  //       if (pointCount >= MAX_POINTS) {
-  //         // Start a new stroke and reset the count
-  //         lines.value = [...lines.value, line.value!];
-  //         line.value = null;
-  //         pointCount = 0;
-  //         // onPointerMove(details);
-  //       }
-  //     }
-  //   }
-  // }
-
-  // v3 on pointer move : threshhold + resume
-
-
-  // v4: no buffer no lag! just entering a bit earlier
-//   void onPointerMove(PointerMoveEvent details) {
-//   if (isEraserMode) {
-//     eraseStrokeAtPoint(details.localPosition);
-//   } else {
-//     final supportsPressure = details.pressureMin < 1;
-//     final localPosition = details.localPosition;
-//     final point = PointVector(
-//       localPosition.dx,
-//       localPosition.dy,
-//       supportsPressure ? details.pressure : null,
-//     );
-//
-//     if (line.value != null) {
-//       // Use the same StrokeStyle when adding a point to the stroke
-//       line.value = Stroke([...line.value!.points, point], options, line.value!.style);
-//       pointCount++;
-//
-//       if (pointCount >= MAX_POINTS) {
-//         // If the current stroke has reached the maximum points, start a new stroke from the last two points of the previous stroke
-//         lines.value = [...lines.value, line.value!];
-//         line.value = Stroke([line.value!.points[line.value!.points.length - 5], line.value!.points.last], options, currentStrokeStyle); // Start a new stroke from the last two points of the previous stroke
-//         pointCount = 2; // Reset the count to 2 as the new stroke already has two points
-//       }
-//     } else {
-//       // If no stroke is in progress, start a new stroke
-//       line.value = Stroke([point], options, currentStrokeStyle);
-//       pointCount = 1;
-//     }
-//   }
-// }
-
-  // v5: v5+ dynamic Cap
-//   void onPointerMove(PointerMoveEvent details) {
-//   if (isEraserMode) {
-//     eraseStrokeAtPoint(details.localPosition);
-//   } else {
-//     final supportsPressure = details.pressureMin < 1;
-//     final localPosition = details.localPosition;
-//     final point = PointVector(
-//       localPosition.dx,
-//       localPosition.dy,
-//       supportsPressure ? details.pressure : null,
-//     );
-//
-//     // Disable the start and end taper and cap when the stroke is in progress
-//     options = options.copyWith(
-//       // start: StrokeEndOptions.start(taperEnabled: false, cap: false),
-//       // end: StrokeEndOptions.end(taperEnabled: false, cap: false),
-//     );
-//
-//     if (line.value != null) {
-//       // Use the same StrokeStyle when adding a point to the stroke
-//       line.value = Stroke([...line.value!.points, point], options, line.value!.style);
-//       pointCount++;
-//
-//       if (pointCount >= MAX_POINTS) {
-//         // If the current stroke has reached the maximum points, start a new stroke from the last two points of the previous stroke
-//         lines.value = [...lines.value, line.value!];
-//         int startIndex = line.value!.points.length - ((currentStrokeStyle.size.round() * 3));
-//         startIndex = startIndex >= 0 ? startIndex : 0; // Ensure the startIndex is not negative
-//         line.value = Stroke([line.value!.points[startIndex], line.value!.points.last], options, currentStrokeStyle);        pointCount = 2; // Reset the count to 2 as the new stroke already has two points
-//       }
-//     } else {
-//       // If no stroke is in progress, start a new stroke
-//       line.value = Stroke([point], options, currentStrokeStyle);
-//       pointCount = 1;
-//     }
-//   }
-// }
-// v6: split and reign
-  Stroke joinStrokes(Stroke stroke1, Stroke stroke2) {
-    // Get the last point of the first stroke
-    PointVector lastPointOfStroke1 = stroke1.points.last;
-
-    // Get the first point of the second stroke
-    PointVector firstPointOfStroke2 = stroke2.points.first;
-
-    // Create a new stroke that starts from the last point of the first stroke and ends at the first point of the second stroke
-    Stroke newStroke = Stroke([lastPointOfStroke1, firstPointOfStroke2], stroke1.options, stroke1.style);
-
-    return newStroke;
-  }
-  void onPointerMove(PointerMoveEvent details) {
+void onPointerMove(PointerMoveEvent details) {
   if (isEraserMode) {
     eraseStrokeAtPoint(details.localPosition);
   } else {
@@ -282,7 +160,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
       if (pointCount >= MAX_POINTS) {
         // If the current stroke has reached the maximum points, start a new stroke from the last two points of the previous stroke
         lines.value = [...lines.value, line.value!];
-        int startIndex = line.value!.points.length - ((currentStrokeStyle.size.round() * 3));
+        int startIndex = line.value!.points.length - (currentStrokeStyle.size.round()*2.5).toInt();
         startIndex = startIndex >= 0 ? startIndex : 0; // Ensure the startIndex is not negative
         line.value = Stroke([line.value!.points[startIndex], line.value!.points.last], options, currentStrokeStyle);
         pointCount = 2; // Reset the count to 2 as the new stroke already has two points
@@ -294,41 +172,89 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
     }
   }
 }
+  static const int MAX_POINTS = 750; // Define your own threshold here
+  int pointCount = 0;
 
-  // v2 dynamic cap
-  // void onPointerUp(PointerUpEvent details) {
-  //   if (line.value != null) {
-  //     // Enable the end taper and cap when the stroke has ended
-  //     options = options.copyWith(
-  //       end: StrokeEndOptions.end(taperEnabled: true, cap: true),
-  //     );
-  //
-  //
-  //     lines.value = [...lines.value, line.value!];
-  //     line.value = null;
-  //   }
-  // }
-  //v3 circle makeing instead of do
-  // void onPointerUp(PointerUpEvent details) {
-  //   if (line.value != null) {
-  //     // Enable the end taper and cap when the stroke has ended
-  //     options = options.copyWith(
-  //       end: StrokeEndOptions.end(taperEnabled: true, cap: true),
-  //     );
-  //
-  //     // Add the current stroke to the list of strokes
-  //     lines.value = [...lines.value, line.value!];
-  //     line.value = null;
-  //   }
-  // }
- // v1
+
+
+
+// v1: onpointerUp
+//   void onPointerUp(PointerUpEvent details) {
+//     if (line.value != null) {
+//       lines.value = [...lines.value, line.value!];
+//       line.value = null;
+//       // buffer = []; // Clear the buffer
+//     }
+//   }
+
+  // v2: adding multiple points instead
+
+//   void onPointerUp(PointerUpEvent details) {
+//   if (line.value != null) {
+//     debugPrint('onPointerUp: line.value!.points.length = ${line.value!.points.length}');
+//
+//     // If the current line only has one point, add additional points within a circle of radius 2 around it
+//     if (line.value!.points.length <=8) {
+//       debugPrint('Adding additional points');
+//       final originalPoint = line.value!.points.first;
+//       final additionalPoints = <PointVector>[];
+//
+//       // Create a new StrokeStyle for the additional points with a size of 1
+//       final dotStyle = StrokeStyle(size: 1, color: currentStrokeStyle.color,);
+//
+//       // Create a new StrokeOptions with the desired taper and cap settings
+//       final dotOptions = StrokeOptions(
+//         start: StrokeEndOptions.start(taperEnabled: false, cap: false),
+//         end: StrokeEndOptions.end(taperEnabled: false, cap: false),
+//         // Copy other options from the current options
+//         size: options.size,
+//         thinning: options.thinning,
+//         smoothing: options.smoothing,
+//         streamline: options.streamline,
+//         easing: options.easing,
+//         simulatePressure: options.simulatePressure,
+//         isComplete: options.isComplete,
+//       );
+//
+//       // Calculate additional points within a circle of radius 2 around the original point
+//       for (var r = 0; r <= 2; r += currentStrokeStyle.size.toInt()) { // Change the step size to control the number of points
+//         for (var i = 0; i < 360; i += currentStrokeStyle.size.toInt()) { // Change the step size to control the number of points
+//           final radian = i * (pi / 180);
+//           final dx = originalPoint.x + r * cos(radian);
+//           final dy = originalPoint.y + r * sin(radian);
+//           additionalPoints.add(PointVector(dx, dy, 1));
+//           debugPrint('Adding additional points ${additionalPoints.length}');
+//         }
+//       }
+//
+//       // Add the additional points to the current line
+//       line.value = Stroke([...line.value!.points, ...additionalPoints], dotOptions, dotStyle);
+//     }
+//
+//     lines.value = [...lines.value, line.value!];
+//     line.value = null;
+//     pointCount = 0;
+//   }
+//
+//
+// }
+
+  // v4
   void onPointerUp(PointerUpEvent details) {
     if (line.value != null) {
-      lines.value = [...lines.value, line.value!];
+      if (line.value!.points.length <= 8) {
+        final point = line.value!.points.first;
+        final dot = Dot(point.x, point.y, options.size/1.5);
+        lines.value = [...lines.value, Stroke([dot], options, currentStrokeStyle)];
+      } else {
+        lines.value = [...lines.value, line.value!];
+      }
+
       line.value = null;
-      // buffer = []; // Clear the buffer
+      pointCount = 0;
     }
   }
+
 
 
   @override
@@ -343,7 +269,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
 
             CustomPaint(
               size: Size.infinite,
-              painter: NotebookBackgroundPainter(backgroundType: BackgroundType.grid),
+              painter: NotebookBackgroundPainter(backgroundType: BackgroundType_OLD.grid),
             ),
             // Previous lines
             Positioned.fill(
@@ -354,7 +280,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
                     return RepaintBoundary(
                       child: CustomPaint(
                         willChange: false,
-                        painter: MultiStrokePainter(strokes: strokes, options: options),
+                        painter: MultiStrokePainter(strokes: strokes),
                       ),
                     );
                   },
@@ -398,31 +324,13 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
                 onTogglePenMode: toggleEraserMode,
               ),
             ),
+
+
           ],
         ),
       ),
     );
   }
-}
-
-class MultiStrokePainter extends CustomPainter {
-  final List<Stroke> strokes;
-  final StrokeOptions options;
-
-  MultiStrokePainter({required this.strokes, required this.options});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final stroke in strokes) {
-      final paint = _getPaint(stroke.style);
-      final path = generatePath(stroke.points, stroke.options);
-      canvas.drawPath(path, paint);
-      debugPrint('Drawing stroke');
-    }
-  }
-
-  @override
-  bool shouldRepaint(MultiStrokePainter oldDelegate) => true;
 }
 
 class StrokePainter extends CustomPainter {
@@ -432,21 +340,49 @@ class StrokePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = _getPaint(stroke.style); // Use the style of the stroke
+    final paint = _getPaint(stroke.style);
 
-    if (stroke.points.length == 1) {
-      // If the stroke only has one point, draw a circle
-      final point = stroke.points.first;
-      canvas.drawCircle(Offset(point.x, point.y), stroke.style.size, paint);
-    } else {
-      // If the stroke has more than one point, draw a path
-      final path = generatePath(stroke.points, stroke.options);
+    final pointVectors = stroke.points.whereType<PointVector>().toList();
+    if (pointVectors.isNotEmpty) {
+      final path = generatePath(pointVectors, stroke.options);
       canvas.drawPath(path, paint);
+    }
+
+    final dots = stroke.points.whereType<Dot>().toList();
+    for (final dot in dots) {
+      canvas.drawCircle(Offset(dot.x, dot.y), dot.radius, paint);
     }
   }
 
   @override
   bool shouldRepaint(StrokePainter oldDelegate) => true;
+}
+
+class MultiStrokePainter extends CustomPainter {
+  final List<Stroke> strokes;
+
+  MultiStrokePainter({required this.strokes});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final stroke in strokes) {
+      final paint = _getPaint(stroke.style);
+
+      final pointVectors = stroke.points.whereType<PointVector>().toList();
+      if (pointVectors.isNotEmpty) {
+        final path = generatePath(pointVectors, stroke.options);
+        canvas.drawPath(path, paint);
+      }
+
+      final dots = stroke.points.whereType<Dot>().toList();
+      for (final dot in dots) {
+        canvas.drawCircle(Offset(dot.x, dot.y), dot.radius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(MultiStrokePainter oldDelegate) => true;
 }
 
 Paint _getPaint(StrokeStyle style) {
@@ -483,11 +419,18 @@ Path generatePath(List<PointVector> points, StrokeOptions options) {
 }
 
 class Stroke {
-  List<PointVector> points;
+  List<dynamic> points;
   final StrokeOptions options;
-  final StrokeStyle style; // Add this line
+  final StrokeStyle style;
 
-  Stroke(this.points, this.options, this.style); // Modify this line
+  Stroke(this.points, this.options, this.style);
+}
+class Dot {
+  final double x;
+  final double y;
+  final double radius;
+
+  Dot(this.x, this.y, this.radius);
 }
 
 class UserToolbar extends StatefulWidget {
@@ -623,4 +566,11 @@ class StrokeStyle {
   Color color;
 
   StrokeStyle({required this.size, required this.color});
+
+  StrokeStyle copyWith({double? size, Color? color}) {
+    return StrokeStyle(
+      size: size ?? this.size,
+      color: color ?? this.color,
+    );
+  }
 }

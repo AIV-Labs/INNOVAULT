@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-import 'package:innovault/Components/CustomPressueSensitiveWidgets/toolbar_freehand.dart';
 import 'package:flutter/material.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 
@@ -97,7 +96,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
           children: [
             CustomPaint(
               size: Size.infinite,
-              painter: NotebookBackgroundPainter(backgroundType: BackgroundType.grid),
+              painter: NotebookBackgroundPainter(backgroundType: BackgroundType_OLD.grid),
             ),
             // Render each stroke with its own painter
             ...strokeNotifiers.map(

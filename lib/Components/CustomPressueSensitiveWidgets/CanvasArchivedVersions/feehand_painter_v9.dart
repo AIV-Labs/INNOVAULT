@@ -4,6 +4,8 @@ import 'package:perfect_freehand/perfect_freehand.dart';
 
 import 'notebook_background_painter.dart';
 
+
+
 // Define a class to hold stroke style options.
 class StrokeStyle {
   double size;
@@ -187,7 +189,7 @@ class _FreehandDrawingCanvasState extends State<FreehandDrawingCanvas> {
           children: [
             CustomPaint(
               size: Size.infinite,
-              painter: NotebookBackgroundPainter(backgroundType: BackgroundType.grid),
+              painter: NotebookBackgroundPainter(backgroundType: BackgroundType_OLD.grid),
             ),
             // Previous lines
             Positioned.fill(

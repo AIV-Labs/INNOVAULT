@@ -7,12 +7,16 @@ import 'dart:ui'as ui;
 
 
 import 'package:flutter/material.dart';
+import 'package:innovault/Components/CustomPressueSensitiveWidgets/CanvasRefactored/ToolsWidgets/text_box_widgets.dart';
+import 'package:innovault/Components/CustomPressueSensitiveWidgets/CanvasRefactored/notebook_background_painter.dart';
 import 'package:innovault/Functions/Providers/pen_options_provider.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
-import '../../Components/CustomPressueSensitiveWidgets/AIV_freehand_multi_tool_canvas.dart';
-import '../../Components/CustomPressueSensitiveWidgets/notebook_background_painter.dart';
+import 'package:realm/realm.dart';
+
+import '../Realms/canvas_realm.dart';
+
 
 class CanvasProvider with ChangeNotifier {
 
@@ -20,16 +24,65 @@ class CanvasProvider with ChangeNotifier {
   PointerMode currentMode = PointerMode.pen;
   GlobalKey canvasKey ;
 
-  // image background details
-  ui.Image? image;
-  String? imagePath;
-  Offset? initialImagePosition;
-  Size? initialImageSize;
 
   CanvasProvider({required this.context, required this.canvasKey}) {
     // Initialize the canvas provider with the pen mode
   }
 
+  fromRealm(CanvasRM realmCanvas) {
+    // Initialize the provider's properties using realmCanvas data
+    // For example:
+    // id = realmCanvas.id;
+    imagePath = realmCanvas.imagePath;
+    initialImagePosition = Offset(realmCanvas.initialImagePositionX, realmCanvas.initialImagePositionY);
+    initialImageSize = Size(realmCanvas.initialImageWidth, realmCanvas.initialImageHeight);
+    backgroundType = BackgroundType.values.firstWhere((e) => e.toString() == realmCanvas.backgroundType);
+    backgroundColor = Color(realmCanvas.backgroundColor);
+    backgroundLinesColor = Color(realmCanvas.backgroundLinesColor);
+    lines = ValueNotifier<List<Stroke>>(realmCanvas.lines.map((e)=> strokeToLocalModel(e)).toList());
+    draggableTextBoxes = createDraggableTextBoxesFromRealm(realmCanvas, context, canvasKey, activeQuillController, removeTextBox);
+    pins = realmCanvas.pins.map((e)=> pinToLocalModel(e)).toList();
+    // Initialize other properties...
+  }
+  /// used to switch the canvas to another canvas from the canvases list
+  void switchCanvasTo(CanvasProvider sourceCanvas) {
+
+    debugPrint('switchCanvasTo called with sourceCanvas. comapring with this: $sourceCanvas');
+    // compare if the sourceCanvas is the same as this in terms of properties individually
+    debugPrint('sourceCanvas.line: ${sourceCanvas.line.value} this.image: ${line.value}');
+    debugPrint('sourceCanvas.lines: ${sourceCanvas.lines.value} this.lines: ${lines.value}');
+    debugPrint('sourceCanvas.draggableTextBoxes: ${sourceCanvas.draggableTextBoxes} this.draggableTextBoxes: $draggableTextBoxes');
+    debugPrint('sourceCanvas.isDraggingTextBox: ${sourceCanvas.isDraggingTextBox.value} this.isDraggingTextBox: ${isDraggingTextBox.value}');
+    debugPrint('sourceCanvas.pins: ${sourceCanvas.pins} this.pins: $pins');
+
+    // Copy properties from sourceCanvas to this
+    image = sourceCanvas.image;
+    imagePath = sourceCanvas.imagePath;
+    initialImagePosition = sourceCanvas.initialImagePosition;
+    initialImageSize = sourceCanvas.initialImageSize;
+    backgroundColor = sourceCanvas.backgroundColor;
+    backgroundLinesColor = sourceCanvas.backgroundLinesColor;
+    lines.value = List.from(sourceCanvas.lines.value);
+    line.value = sourceCanvas.line.value;
+    draggableTextBoxes = List.from(sourceCanvas.draggableTextBoxes);
+    isDraggingTextBox.value = sourceCanvas.isDraggingTextBox.value;
+    pins = List.from(sourceCanvas.pins);
+    pointerPosition.value = sourceCanvas.pointerPosition.value;
+    isCursorVisible.value = sourceCanvas.isCursorVisible.value;
+    backgroundType = sourceCanvas.backgroundType;
+    fabPositionNotifier.value = sourceCanvas.fabPositionNotifier.value;
+    currentMode = sourceCanvas.currentMode;
+
+    // Notify listeners to update UI
+    notifyListeners();
+  }
+
+
+// image background details
+  ui.Image? image;
+  String? imagePath;
+  Offset? initialImagePosition;
+  Size? initialImageSize;
   Future<void> _loadImage() async {
   if (imagePath != null) {
     final imageProvider = AssetImage(imagePath!);
@@ -43,12 +96,13 @@ class CanvasProvider with ChangeNotifier {
     final imageInfo = await completer.future;
     imageProvider.resolve(ImageConfiguration()).removeListener(listener);
     image = imageInfo.image;
-    initialImageSize = Size(image!.width.toDouble(), image!.height.toDouble());
+    // initialImageSize = Size(image!.width.toDouble(), image!.height.toDouble());
     notifyListeners();
   }
 }
  void updateImagePosition(Offset newPosition) {
     initialImagePosition = newPosition;
+    debugPrint('updateImagePosition called with $newPosition');
     notifyListeners();
   }
   void updateImageSize(Size newSize) {
@@ -69,6 +123,7 @@ class CanvasProvider with ChangeNotifier {
         .textBoxes
         .map((e) {
       GlobalKey key = GlobalKey();
+      debugPrint('Creating DraggableTextBox with id: ${e.id}');
       return DraggableTextBox(
         key: key,
         id: e.id,
@@ -80,9 +135,31 @@ class CanvasProvider with ChangeNotifier {
       );
     }).toList();
   }
+
+  List<DraggableTextBox> createDraggableTextBoxesFromRealm(
+      CanvasRM realmCanvas,
+      BuildContext context,
+      GlobalKey canvasKey,
+      ValueNotifier<quill.QuillController?> activeQuillController,
+      Function removeTextBox) {
+    return realmCanvas.textBoxes.map((textBoxModel) {
+      GlobalKey key = GlobalKey();
+      TextBox textBox = textBoxToLocalModel(textBoxModel);  // Convert Realm TextBox model to local TextBox model
+      return DraggableTextBox(
+        key: key,
+        id: textBox.id,
+        canvasKey: canvasKey,
+        textBox: textBox,
+        activeQuillController: activeQuillController,
+        isDraggingTextBox: ValueNotifier<bool>(false),
+        onRemove: () => removeTextBox(textBox.id),
+      );
+    }).toList();
+  }
+
 // another named constructor without canvasKey
 
-  // background colors
+
   // Background color
   Color backgroundColor = Colors.white;
 
@@ -93,6 +170,7 @@ class CanvasProvider with ChangeNotifier {
   // line drawing
   ValueNotifier<List<Stroke>> lines = ValueNotifier<List<Stroke>>([]);
   ValueNotifier<Stroke?> line = ValueNotifier<Stroke?>(null);
+
   // #### pointer Logic ####
   void onPointerDown(PointerDownEvent details) {
     if (isDraggingTextBox.value) {
@@ -605,7 +683,29 @@ class CanvasProvider with ChangeNotifier {
 }
 
 
+  void saveCanvasToRealm(Realm realm, ) {
+    final realmCanvas = CanvasRM(
+      ObjectId().toString(),
+      imagePath!,
+      initialImagePosition!.dx,
+      initialImagePosition!.dy,
+      initialImageSize!.width,
+      initialImageSize!.height,
+      backgroundType.toString(),
+      backgroundColor.value,
+      backgroundLinesColor.value,
+      lines: lines.value.map((e) => strokeFromLocalModel(e)).toList(),
+      textBoxes: draggableTextBoxes.map((e) => textBoxFromLocalModel(e.textBox)).toList(),
+      pins: pins.map((e) => pinFromLocalModel(e)).toList(),
 
+    );
+
+    realm.writeAsync(() {
+      realm.add(realmCanvas, update: true);
+    });
+  }
 
   // TODO: Add methods for undo, redo, and infinite canvas here
 }
+
+

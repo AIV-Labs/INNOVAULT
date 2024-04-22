@@ -1,54 +1,21 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:perfect_freehand/perfect_freehand.dart';
 import 'package:provider/provider.dart';
 
+import '../Realms/canvas_realm.dart';
 
+// Providers
+
+// pen drawing stroke provider
 enum PointerMode { pen,
   eraser,
   textBox,
   // brush,
   pin,
   none }
-class StrokeStyle {
-  final double size;
-  final Color color;
-  final bool taper;
-  final StrokeCap cap;
-
-  StrokeStyle({
-    required this.size,
-    required this.color,
-    this.taper = true,
-    this.cap = StrokeCap.round, // Set a default value
-  });
-
-  StrokeStyle copyWith({double? size, Color? color, bool? taper, StrokeCap? cap}) {
-    return StrokeStyle(
-      size: size ?? this.size,
-      color: color ?? this.color,
-      taper: taper ?? this.taper,
-      cap: cap ?? this.cap,
-    );
-  }
-}
-class Stroke {
-  List<dynamic> points;
-   StrokeOptions options;
-   StrokeStyle style;
-   PointerMode mode;
-  Stroke(this.points, this.options, this.style,  this.mode);
-}
-class Dot {
-  final double x;
-  final double y;
-  final double radius;
-
-  Dot(this.x, this.y, this.radius);
-}
-
-// defaults
-
 class PenOptionsProvider extends ChangeNotifier {
 
   bool isPressureSensitive = true;
@@ -118,12 +85,10 @@ class PenOptionsProvider extends ChangeNotifier {
         start:
         StrokeEndOptions.start(
           taperEnabled: false,
-          customTaper: 1,
-          cap: false,
+          cap: true,
         ),
         end: StrokeEndOptions.end(
           taperEnabled: false,
-          customTaper: 1,
           cap: false,
         ),
         simulatePressure:  true,
@@ -370,28 +335,7 @@ class PenOptionsProvider extends ChangeNotifier {
   }
 }
 
-
-
-class Pin {
-   Offset position;
-   String id;
-   String tooltip;
-   List<Map<DateTime, String>> history; // Each map contains a date and data
-   PinShape shape;
-   Color color;
-  double size;
-
-  Pin({
-    required this.position,
-    required this.id,
-     this.history = const [],
-    required this.tooltip,
-     this.shape = PinShape.circle_filled,
-     this.color = Colors.white,
-     this.size = 10.0,
-  });
-}
-
+// pin drawing provider
 enum PinShape {
   circle_filled,
   circle_stroke,
@@ -404,7 +348,6 @@ enum PinShape {
 
   hexagon_filled,
   hexagon_stroke }
-
 class PinOptionsProvider extends ChangeNotifier {
   // defaults
   List<Map<String, dynamic>> defaultHistory = [];
@@ -442,6 +385,7 @@ class PinOptionsProvider extends ChangeNotifier {
 
 }
 
+// eraser provider
 enum EraserMode {
   objectEraser,
   pointEraser,
@@ -461,36 +405,7 @@ class EraserOptionsProvider extends ChangeNotifier {
   }
 }
 
-
-// Provider for Text box
-class TextBox {
-   String id;
-   String creator;
-   String lastEditor;
-   DateTime creationDate;
-   DateTime lastUpdateDate;
-   List <String> activeUsers;
-   Offset position;
-   quill.QuillController controller;
-   Color bannerColor = Colors.blue;
-   bool bannerVisible;
-   Size size;
-
-  TextBox({
-    required this.id,
-    required this.creator,
-    required this.lastEditor,
-    required this.creationDate,
-    required this.lastUpdateDate,
-    required this.position,
-    required this.controller,
-    this.bannerColor = const Color(0xFF66666E),
-    this.bannerVisible = false,
-    this.size = const Size(200, 200),
-    this.activeUsers = const [],
-  });
-}
-
+// text box provider
 class TextBoxProvider extends ChangeNotifier {
   List<TextBox> _textBoxes = [];
 
@@ -516,6 +431,7 @@ class TextBoxProvider extends ChangeNotifier {
     }
   }
   void updateBoxSize(String id, Size newSize) {
+    debugPrint('newSize: $newSize');
     int index = _textBoxes.indexWhere((tb) => tb.id == id);
     if (index != -1) {
       _textBoxes[index].size = newSize;
@@ -523,6 +439,7 @@ class TextBoxProvider extends ChangeNotifier {
     }
   }
   void updateTextBoxContent(String id, quill.QuillController newController) {
+
     int index = _textBoxes.indexWhere((tb) => tb.id == id);
     if (index != -1) {
       _textBoxes[index].controller = newController;
@@ -556,9 +473,7 @@ class TextBoxProvider extends ChangeNotifier {
 
 }
 
-
-
-
+// multi provider
 class DrawingOptionsProvider extends StatelessWidget {
   final Widget child;
 
@@ -584,4 +499,266 @@ class DrawingOptionsProvider extends StatelessWidget {
       child: child,
     );
   }
+}
+
+
+// Classes
+
+class StrokeStyle {
+  final double size;
+  final Color color;
+  final bool taper;
+  final StrokeCap cap;
+
+  StrokeStyle({
+    required this.size,
+    required this.color,
+    this.taper = true,
+    this.cap = StrokeCap.round, // Set a default value
+  });
+
+  StrokeStyle copyWith({double? size, Color? color, bool? taper, StrokeCap? cap}) {
+    return StrokeStyle(
+      size: size ?? this.size,
+      color: color ?? this.color,
+      taper: taper ?? this.taper,
+      cap: cap ?? this.cap,
+    );
+  }
+}
+class Stroke {
+  List<dynamic> points;
+  StrokeOptions options;
+  StrokeStyle style;
+  PointerMode mode;
+  Stroke(this.points, this.options, this.style,  this.mode);
+}
+class Dot {
+  final double x;
+  final double y;
+  final double radius;
+
+  Dot(this.x, this.y, this.radius);
+}
+
+
+class Pin {
+  Offset position;
+  String id;
+  String tooltip;
+  List<Map<DateTime, String>> history; // Each map contains a date and data
+  PinShape shape;
+  Color color;
+  double size;
+
+  Pin({
+    required this.position,
+    required this.id,
+    this.history = const [],
+    required this.tooltip,
+    this.shape = PinShape.circle_filled,
+    this.color = Colors.white,
+    this.size = 10.0,
+  });
+}
+
+class TextBox {
+  String id;
+  String creator;
+  String lastEditor;
+  DateTime creationDate;
+  DateTime lastUpdateDate;
+  List <String> activeUsers;
+  Offset position;
+  quill.QuillController controller;
+  Color bannerColor = Colors.blue;
+  bool bannerVisible;
+  Size size;
+
+  TextBox({
+    required this.id,
+    required this.creator,
+    required this.lastEditor,
+    required this.creationDate,
+    required this.lastUpdateDate,
+    required this.position,
+    required this.controller,
+    this.bannerColor = const Color(0xFF66666E),
+    this.bannerVisible = false,
+    this.size = const Size(200, 200),
+    this.activeUsers = const [],
+  });
+}
+
+// Converters
+
+// Pin
+Pin pinToLocalModel(PinRM pin) {
+  return Pin(
+    id: pin.id,
+    position: Offset(pin.positionX, pin.positionY),
+    tooltip: pin.tooltip,
+    history: pin.history.map((entry) => {entry.date: entry.data}).toList(),
+    shape: PinShape.values.firstWhere((e) => e.toString() == pin.shape), // Update based on how you define PinShape
+    color: Color(int.parse(pin.color)),
+    size: pin.size,
+  );
+}
+
+PinRM pinFromLocalModel(Pin pin) {
+  return PinRM(
+    pin.id,
+    pin.position.dx,
+    pin.position.dy,
+    pin.tooltip,
+    pin.shape.toString(), // Update based on how you define PinShape
+    pin.color.toString(),
+    pin.size,
+    history: pin.history.map((entry) => PinHistoryRM( entry.keys.first, entry.values.first)).toList(),
+  );
+}
+
+// TextBox
+TextBox textBoxToLocalModel(TextBoxRM textBox) {
+  return TextBox(
+    id: textBox.id,
+    creator: textBox.creator,
+    lastEditor: textBox.lastEditor,
+    creationDate: textBox.creationDate,
+    lastUpdateDate: textBox.lastUpdateDate,
+    position: Offset(textBox.positionX, textBox.positionY),
+    controller: quill.QuillController(
+        document: quill.Document.fromJson(jsonDecode(textBox.serializedContent)),
+      selection: const TextSelection.collapsed(offset: 0), ),
+    bannerColor: Color(textBox.bannerColor),
+    bannerVisible: textBox.bannerVisible,
+    size: Size(textBox.width, textBox.height),
+
+  );
+}
+
+TextBoxRM textBoxFromLocalModel(TextBox textBox) {
+  return TextBoxRM(
+    textBox.id,
+    textBox.creator,
+    textBox.lastEditor,
+    textBox.creationDate,
+    textBox.lastUpdateDate,
+    textBox.position.dx,
+    textBox.position.dy,
+    jsonEncode(textBox.controller.document.toDelta().toJson()),
+    textBox.bannerColor.value,
+    textBox.bannerVisible,
+    textBox.size.width,
+    textBox.size.height,
+  );
+}
+
+// point rm to either DOt or pointvecotr
+
+dynamic pointToLocalModel(PointRM point) {
+  if (point.type == "Dot") {
+    return dotToLocalModel(point);
+  } else {
+    return PointVector(point.x, point.y, point.pressure);
+  }
+}
+
+Dot dotToLocalModel(PointRM dotrm) {
+  return Dot(dotrm.x, dotrm.y, dotrm.radius!);
+}
+
+PointRM pointFromLocalModel(dynamic point) {
+  if (point is Dot) {
+    return PointRM("Dot",point.x, point.y, radius:point.radius);
+  } else {
+    return PointRM("PointVector",point.x, point.y, pressure:point.pressure);
+  }
+}
+
+
+
+
+StrokeStyle strokeStyleToLocalModel(StrokeStyleRM stylerm) {
+  return StrokeStyle(
+size: stylerm.size,
+    color: Color((int.parse(stylerm.color))),  // Convert Color to String
+    taper: stylerm.taper,
+    cap: StrokeCap.values.firstWhere((e) => e.toString() == stylerm.cap),  // Convert StrokeCap to String
+  ); // Convert enum to String
+}
+
+StrokeStyleRM strokeStyleFromLocalModel(StrokeStyle style) {
+  return StrokeStyleRM(
+    style.size,
+    style.color.toString(),  // Convert String to Color
+    style.taper,
+    style.cap.toString()
+  );
+}
+
+// stroke options from and to
+
+StrokeOptions strokeOptionsToLocalModel(StrokeOptionsRM options) {
+  return StrokeOptions(
+    size: options.size,
+    thinning: options.thinning,
+    smoothing: options.smoothing,
+    streamline: options.streamline,
+    start: StrokeEndOptions.start(
+      taperEnabled: options.start!.taperEnabled,
+      customTaper: options.start!.customTaper,
+      cap: options.start!.cap,
+    ),
+    end: StrokeEndOptions.end(
+      taperEnabled: options.end!.taperEnabled,
+      customTaper: options.end!.customTaper,
+      cap: options.end!.cap,
+    ),
+    simulatePressure: options.simulatePressure,
+    isComplete: options.isComplete,
+  );
+}
+
+StrokeOptionsRM strokeOptionsFromLocalModel(StrokeOptions options) {
+  return StrokeOptionsRM(
+      size: options.size,
+      thinning: options.thinning,
+      smoothing:options.smoothing,
+      streamline: options.streamline,
+      simulatePressure: options.simulatePressure,
+      start: StrokeEndOptionsRM(
+         options.start.cap,
+        options.start.taperEnabled,
+        options.start.customTaper!,
+      ),
+      end: StrokeEndOptionsRM(
+        options.end.cap,
+         options.end.taperEnabled,
+        options.end.customTaper!,
+      ),
+      isComplete: options.isComplete,
+
+  );
+}
+
+
+ // stroke from and to
+
+Stroke strokeToLocalModel(StrokeRM stroke) {
+  return Stroke(
+    stroke.points.map((point) => pointToLocalModel(point)).toList(),
+    strokeOptionsToLocalModel(stroke.options!),
+    strokeStyleToLocalModel(stroke.style!),
+    PointerMode.pen // Update based on how you define PointerMode
+  );
+}
+
+StrokeRM strokeFromLocalModel(Stroke stroke) {
+  return StrokeRM(
+    points: stroke.points.map((point) => pointFromLocalModel(point)).toList(),
+    options: strokeOptionsFromLocalModel(stroke.options),
+    style: strokeStyleFromLocalModel(stroke.style),
+     // Update based on how you define PointerMode
+  );
 }

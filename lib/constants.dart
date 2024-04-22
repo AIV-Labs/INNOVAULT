@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:innovault/Functions/Realms/canvas_realm.dart';
+import 'package:realm/realm.dart';
 final List<Color> defaultColorsList = [
   Colors.black,
   Color(0xFF0b090a),
@@ -47,4 +49,18 @@ final List<Color> defaultColorsList = [
 
 
 
+];
+
+
+final List<SchemaObject> realmSchemas = [
+  CanvasListRM.schema,
+  CanvasRM.schema,
+  PinRM.schema,
+  PinHistoryRM.schema,
+  TextBoxRM.schema,
+  StrokeRM.schema,
+  PointRM.schema,
+  StrokeStyleRM.schema,
+  StrokeOptionsRM.schema,
+  StrokeEndOptionsRM.schema,
 ];

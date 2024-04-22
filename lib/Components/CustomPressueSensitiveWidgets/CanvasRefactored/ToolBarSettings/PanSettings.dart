@@ -6,8 +6,9 @@ import 'package:innovault/Functions/Providers/canvas_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../../AppStructure/UnderContruction.dart';
-import '../../notebook_background_painter.dart';
 import 'package:innovault/constants.dart';
+
+import '../notebook_background_painter.dart';
 class PanSettings extends StatefulWidget {
   final BackgroundType backgroundType;
   final Function updateBackgroundType;

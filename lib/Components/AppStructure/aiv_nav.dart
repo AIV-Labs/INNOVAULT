@@ -6,6 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../Functions/Providers/app_state_provider.dart';
+import 'NavWidgets/dashboard_nav_widget.dart';
+import 'NavWidgets/file_vault_nav_widget.dart';
+import 'NavWidgets/journal_nav_widget.dart';
+import 'NavWidgets/task_nav_widget.dart';
 
 final tileTxtStyle = TextStyle(
   fontSize: 14,
@@ -36,8 +40,26 @@ class _AIVNavRailState extends State<AIVNavRail> {
 
   Timer? exitTimer;
   Timer? enterTimer;
+  bool detailedViewOpen = false;
+
+  void toggleDetailedView() {
+    setState(() {
+      detailedViewOpen = !detailedViewOpen;
+    });
+  }
+  void turnOffDetailedView() {
+    setState(() {
+      detailedViewOpen = false;
+    });
+  }
+  void turnOnDetailedView() {
+    setState(() {
+      detailedViewOpen = true;
+    });
+  }
 
   void chgSelectedPage(String newPage) {
+    turnOnDetailedView();
     setState(() {
       selectedPage = newPage;
     });
@@ -130,19 +152,22 @@ class _AIVNavRailState extends State<AIVNavRail> {
                     flex: 2,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        return isHovered
-                            ? Container(
+                        return  Container(
                                 height: 170,
                                 padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
                                 child: Column(
                                   children: [
                                     Expanded(
                                       flex: 20,
-                                      child: Image.asset(
-                                        'assets/Logo_Icons/Logo_v4.png',
-                                        height: 170,
-                                        filterQuality: FilterQuality.medium,
-                                        isAntiAlias: true,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Image.asset(
+                                          'assets/CF_bodymodel/female/woman_front_face.png',
+                                          height: 170,
+                                          fit: BoxFit.scaleDown,
+                                          filterQuality: FilterQuality.medium,
+                                          isAntiAlias: true,
+                                        ),
                                       ),
                                     ),
                                     Expanded(
@@ -162,26 +187,8 @@ class _AIVNavRailState extends State<AIVNavRail> {
                                     ),
                                   ],
                                 ),
-                              )
-                            : Container(
-                                padding: const EdgeInsets.fromLTRB(0, 70, 20, 0),
-                                height: 170,
-                                // child:  Icon(Icons.account_circle_rounded,  size: 30, shadows: shadowStyle,)
-                                child: Text(
-                                  'N',
-                                  style: TextStyle(
-                                    fontSize: 40,
-                                    shadows: shadowStyle,
-                                    fontFamily:
-                                        GoogleFonts.fleurDeLeah().fontFamily,
-                                    fontWeight: FontWeight.w800,
-                                    textBaseline: TextBaseline.alphabetic,
-                                    // color: Colors.black.withOpacity(0.6),
-                                    color:
-                                        const Color(0xFF125773).withOpacity(0.6),
-                                  ),
-                                ),
                               );
+
                       },
                     ),
                   ),
@@ -192,78 +199,88 @@ class _AIVNavRailState extends State<AIVNavRail> {
       
                   // List Tiles
       
+                  // List Tiles
+
                   Expanded(
                       flex: 5,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                              child: CustomListTile(
-                            isVisible: isVisible,
-                            icon: Icons.dashboard,
-                            title: 'Dashboard',
-                            hoveredColor: const Color(0xFFe8cca5),
-                            chgSelectedPage: chgSelectedPage,
-                          )),
-                          Expanded(
-                              child: CustomListTile(
-                            isVisible: isVisible,
-                            icon: Icons.schedule,
-                            title: 'Scheduling',
-                            hoveredColor: const Color(0xFF6b4e71),
-                            chgSelectedPage: chgSelectedPage,
-                          )),
-                          Expanded(
-                              child: CustomListTile(
-                            isVisible: isVisible,
-                            icon: Icons.people,
-                            title: 'Clients',
-                            hoveredColor: const Color(0xFFb75d69),
-                            chgSelectedPage: chgSelectedPage,
-                          )),
-                          Expanded(
-                              child: CustomListTile(
-                            isVisible: isVisible,
-                            icon: Icons.attach_money,
-                            title: 'Billing',
-                            hoveredColor: const Color(0xFF00a878),
-                            chgSelectedPage: chgSelectedPage,
-                          )),
-                          Expanded(
-                              child: CustomListTile(
-                            isVisible: isVisible,
-                            icon: Icons.inventory,
-                            title: 'Inventory',
-                            hoveredColor: const Color(0xFF53687e),
-                            chgSelectedPage: chgSelectedPage,
-                          )),
-                          Expanded(
-                              child: CustomListTile(
-                            isVisible: isVisible,
-                            icon: Icons.analytics,
-                            title: 'Reports & Analytics',
-                            hoveredColor: const Color(0xFFe1aa1e),
-                            chgSelectedPage: chgSelectedPage,
-                          )),
-                          Expanded(
-                              child: CustomListTile(
-                            isVisible: isVisible,
-                            icon: Icons.chat,
-                            title: 'Communication',
-                            hoveredColor: const Color(0xFFa2a77f),
-                            chgSelectedPage: chgSelectedPage,
-                          )),
-                          Expanded(
-                            child: CustomListTile(
-                              isVisible: isVisible,
-                              icon: Icons.settings,
-                              title: 'Options',
-                              hoveredColor: const Color(0xFF5f797b),
-                              chgSelectedPage: chgSelectedPage,
-                            ),
-                          ),
-                        ],
-                      )),
+                      child: LayoutBuilder(
+                        builder: (BuildContext context, BoxConstraints constraints) {
+                          if (isHovered && detailedViewOpen) {
+                            // Navigation rail is opened and detailed view is open
+                            Widget selectedWidget;
+                            switch (selectedPage) {
+                                case 'Dashboard':
+                                  selectedWidget = const DashboardNavWidget();
+                                  break;
+                                case 'File Vault':
+                                  selectedWidget = const VaultNavWidget();
+                                  break;
+                                case 'Journal':
+                                  selectedWidget = const JournalNavWidget();
+                                  break;
+                                case 'Tasks':
+                                  selectedWidget = const TasksNavWidget();
+                                  break;
+                                default:
+                                  selectedWidget = Text('You Shouldn\'t Be Here '); // Default widget when no page is selected
+                                }
+                                return Column(
+                                children: [
+                                TextButton(
+                                onPressed: turnOffDetailedView,
+                                child: const Text('Back to main navigation'),
+                                ),
+                                selectedWidget,
+                                ],
+                                );
+
+                          } else {
+                            // Navigation rail is closed
+                            return Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: CustomListTile(
+                                    isVisible: isVisible,
+                                    icon: Icons.dashboard,
+                                    title: 'Dashboard',
+                                    hoveredColor: const Color(0xFFe8cca5),
+                                    chgSelectedPage: chgSelectedPage,
+                                  )
+                                ),
+                                Expanded(
+                                  child: CustomListTile(
+                                    isVisible: isVisible,
+                                    icon: Icons.folder_open,
+                                    title: 'File Vault',
+                                    hoveredColor: const Color(0xFF6b4e71),
+                                    chgSelectedPage: chgSelectedPage,
+                                  )
+                                ),
+                                Expanded(
+                                  child: CustomListTile(
+                                    isVisible: isVisible,
+                                    icon: Icons.book,
+                                    title: 'Journal',
+                                    hoveredColor: const Color(0xFFb75d69),
+                                    chgSelectedPage: chgSelectedPage,
+                                  )
+                                ),
+                                Expanded(
+                                  child: CustomListTile(
+                                    isVisible: isVisible,
+                                    icon: Icons.task,
+                                    title: 'Tasks',
+                                    hoveredColor: const Color(0xFF00a878),
+                                    chgSelectedPage: chgSelectedPage,
+                                  )
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                      ),
+                    ),
       
                   const SizedBox(
                     height: 80,

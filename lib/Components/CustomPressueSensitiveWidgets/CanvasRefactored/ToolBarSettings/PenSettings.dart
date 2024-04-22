@@ -15,18 +15,21 @@ class PenSettings extends StatelessWidget {
       builder: (context, penOptionsProvider, child) {
         return Column(
           children: [
-            OptionParameterSlider(
-              label: 'Pen Stroke',
-              value: penOptionsProvider.currentOptionIndex.toDouble(),
-              onChanged: (double value) {
-                penOptionsProvider.changePen(value.round());
-              },
-              onReset: () {
-                penOptionsProvider.resetPenOptions();
-              },
-            min: 0,
-            max: penOptionsProvider.defaultPSensOptionsList.length.toDouble()-1,
-              divisions: penOptionsProvider.defaultPSensOptionsList.length-1,
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 5),
+              child: OptionParameterSlider(
+                label: 'Pen Stroke',
+                value: penOptionsProvider.currentOptionIndex.toDouble(),
+                onChanged: (double value) {
+                  penOptionsProvider.changePen(value.round());
+                },
+                onReset: () {
+                  penOptionsProvider.resetPenOptions();
+                },
+              min: 0,
+              max: penOptionsProvider.defaultPSensOptionsList.length.toDouble()-1,
+                divisions: penOptionsProvider.defaultPSensOptionsList.length-1,
+              ),
             ),
             const SizedBox(height: 10),
 
@@ -35,7 +38,7 @@ class PenSettings extends StatelessWidget {
             const SizedBox(height: 10),
             // color picker
             Row(
-              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.max,
               children: [
@@ -50,8 +53,8 @@ class PenSettings extends StatelessWidget {
                       ),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    height: 30,
-                    width: 30,
+                    height: 25,
+                    width: 25,
                     padding: const EdgeInsets.all(10),
                   
                   ),
@@ -186,7 +189,7 @@ class AdvancedStrokeOptions extends StatelessWidget {
                     // Cap
                     Row(
                       children: [
-                        Text('Cap '),
+                        Text('Cap ', style: TextStyle(fontSize: 18),),
                         Switch(
                           value: penOptionsProvider.strokeOptions.start.cap,
                           onChanged: (value) {
@@ -200,7 +203,7 @@ class AdvancedStrokeOptions extends StatelessWidget {
                     // Taper toggle
                     Row(
                       children: [
-                        Text('Taper'),
+                        Text('Taper', style: TextStyle(fontSize: 18),),
                         Switch(
                           value: penOptionsProvider.strokeOptions.start.taperEnabled,
                           onChanged: (value) {
@@ -249,7 +252,7 @@ class AdvancedStrokeOptions extends StatelessWidget {
                     // Cap
                     Row(
                       children: [
-                        Text('Cap '),
+                        Text('Cap ', style: TextStyle(fontSize: 18),),
                         Switch(
                           value: penOptionsProvider.strokeOptions.end.cap,
                           onChanged: (value) {
@@ -263,7 +266,7 @@ class AdvancedStrokeOptions extends StatelessWidget {
                     // Taper toggle
                     Row(
                       children: [
-                        Text('Taper'),
+                        Text('Taper', style: TextStyle(fontSize: 18),),
                         Switch(
                           value: penOptionsProvider.strokeOptions.end.taperEnabled,
                           onChanged: (value) {
@@ -333,12 +336,10 @@ class OptionParameterSlider extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
       // label
-    Flexible(
-        child: FittedBox(fit:BoxFit.scaleDown,child: Text(label))
-    ),
+    FittedBox(fit:BoxFit.scaleDown,child: Text(label, style: TextStyle(fontSize: 12))),
             // Slider
             Flexible(
-              flex:3,
+              flex:10,
               child: Slider(
               value: value,
               min: min,
