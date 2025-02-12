@@ -301,7 +301,7 @@ _focusScopeNode.removeListener(_handleFocusChange);
                               configurations: quill.QuillEditorConfigurations(
                                 controller: widget.textBox.controller,
                                 autoFocus: false,
-                                readOnly: false,
+                                // readOnly: false,
                                 sharedConfigurations: const quill.QuillSharedConfigurations(
                                   locale: Locale('en'),
                                 ),

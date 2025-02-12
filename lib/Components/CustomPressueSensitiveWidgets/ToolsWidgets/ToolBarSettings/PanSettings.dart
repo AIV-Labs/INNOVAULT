@@ -104,7 +104,7 @@ class _PanSettingsState extends State<PanSettings> {
               Flexible(
                 child: Text(
                   'Pan Settings',
-                  style: Theme.of(context).textTheme.headline5,
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
               const SizedBox(height: 20),

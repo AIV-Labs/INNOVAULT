@@ -1555,7 +1555,7 @@ class _DraggableTextBoxState extends State<DraggableTextBox> {
                             configurations: quill.QuillEditorConfigurations(
                               controller: widget.textBox.controller,
                               autoFocus: false,
-                              readOnly: false,
+                              // readOnly: false,
                               sharedConfigurations: const quill.QuillSharedConfigurations(
                                 locale: Locale('en'),
                               ),
